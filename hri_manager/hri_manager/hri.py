@@ -6,9 +6,7 @@ from natural_language_processing.speech_to_text.audio_recorder import AudioRecor
 from natural_language_processing.speech_to_text.whisper_model import SpeechToTextModel
 from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
 
-from hri_msgs.msg import HRICommand as HRICommandMSG # Download https://github.com/ichores-research/modality_merging to workspace
-from naive_merger.HriCommand import HriCommand
-from naive_merger.utils import cc
+from hri_manager.utils import cc
 
 # import rclpy
 # from rclpy.qos import QoSProfile, QoSReliabilityPolicy
@@ -83,7 +81,8 @@ class HRI(Feedback_for_HRI, LfD):
         self.compute_final_transform() 
 
         try:
-            self.load_morph_trajectory(skill_parameter, morph_parameter=skill_parameter)
+            self.load(name_skill)
+            # self.load_morph_trajectory(skill_parameter, morph_parameter=skill_parameter)
             print(f"Execution", flush=True)
             self.execute()
         except KeyboardInterrupt:

@@ -1,4 +1,4 @@
-name: gesturenlu
+name: lfd
 channels:
 - conda-forge
 - robostack-staging
@@ -46,9 +46,11 @@ dependencies:
 - qt-main=5.15.8
 - qt-webengine=5.15.8
 - pyaudio
+- gdown
 - pip:
   - phonemizer
   - munch
+  - kokoro
   - py-espeak-ng
   - soundfile
   - playsound

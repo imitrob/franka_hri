@@ -1,6 +1,6 @@
 
 #!/usr/bin/env python
-from naive_merger.HriCommand import HriCommand
+from hri_manager.HriCommand import HriCommand
 
 import rclpy
 from rclpy.node import Node
@@ -25,7 +25,7 @@ class ActionExecutor():
         
     def play_skill_callback(self, msg):
         hricommand = HriCommand.from_ros(msg)
-        self.hri.play_skill(hricommand.target_action, object_template_name=hricommand.target_action)
+        self.hri.play_skill(hricommand.target_action, name_template=hricommand.target_action)
 
 def main(dry_run: bool):
     rclpy.init()

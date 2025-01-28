@@ -13,7 +13,7 @@ def main():
 
     hri.speak("Showing the action!")
     hri.home()
-    # hri.play_skill(name_skill, name_skill)
+    hri.play_skill(args.name_skill, args.name_skill)
     
     while True:
         hri.speak("Now say, what would you told the robot to do this action! One word please. Recording. 3, 2, 1, Go!")
