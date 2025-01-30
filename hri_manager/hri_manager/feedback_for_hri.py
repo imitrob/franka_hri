@@ -8,13 +8,14 @@ class Feedback_for_HRI(Feedback):
         super(Feedback_for_HRI, self).__init__()
         self.is_recording = False
         
-    def on_press(self, key):
+    def _on_press(self, key):
         if key == KeyCode.from_char("r"):
-            self.is_recording = True
-            self.rec.start_recording()
+            if not self.is_recording:
+                self.is_recording = True
+                self.rec.start_recording()
         super()._on_press(key)
 
-    def on_release(self, key):
+    def _on_release(self, key):
         if key == KeyCode.from_char("r"):
             if self.is_recording:
                 self.is_recording = False

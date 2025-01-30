@@ -6,17 +6,10 @@ from natural_language_processing.speech_to_text.audio_recorder import AudioRecor
 from natural_language_processing.speech_to_text.whisper_model import SpeechToTextModel
 from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
 
-from hri_manager.utils import cc
-
-# import rclpy
-# from rclpy.qos import QoSProfile, QoSReliabilityPolicy
-# import time
-# import collections
-
 from gesture_sentence_maker.gesture_sentence_getter import GestureSentenceGetter
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 import subprocess as sp
-import os, json
+from pathlib import Path
 import numpy as np
 
 from lfd_msgs.srv import SetTemplate
@@ -29,42 +22,57 @@ def get_gpu_memory():
     return memory_free_values
 
 get_gpu_memory()
-from pynput import keyboard
 
 from hri_manager.feedback_for_hri import Feedback_for_HRI
 
 class HRI(Feedback_for_HRI, LfD):
     def __init__(self,
+                name_user: str,
                 tts_enabled: bool = True,
                 dry_run: bool = False,
                 ):
         super(HRI, self).__init__()
         self.tts_enabled = tts_enabled
         self.dry_run = dry_run
+        self.user = name_user
+        assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
 
         self.start()
-        self.user = self.declare_parameter("user_name", "Melichar").get_parameter_value().string_value # replaced if launch
 
-        print(f"memory left (whisper): {get_gpu_memory()}", flush=True)
-        self.stt = SpeechToTextModel(device="cuda:0")
-        print(f"memory left (speaker): {get_gpu_memory()}", flush=True)
+        print(f"1/3 Init STT: VRAM memory left: {get_gpu_memory()}", flush=True)
+        self.stt = SpeechToTextModel(device="cuda:0") # you might want to offload to cpu
         if tts_enabled:
-            self.tts = Chatterbox(device="cpu")
-            print(f"memory left (recorder): {get_gpu_memory()}", flush=True)
+            print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
+            self.tts = Chatterbox(device="cuda:0") # you might want to offload to cpu
         self.rec = AudioRecorder()
-        print(f"memory left (sentence processor): {get_gpu_memory()}", flush=True)
+        print(f"3/3 Init LM: VRAM memory left: {get_gpu_memory()}", flush=True)
         self.sentence_processor = SentenceProcessor()
-        print(f"memory left (done): {get_gpu_memory()}", flush=True)
+        print(f"Done: VRAM memory left: {get_gpu_memory()}", flush=True)
 
         self.gestures = GestureSentenceGetter(self)
+
 
     def listen_user(self):
         self.rec.start_recording()
         input("Press enter to finish")
         return self.stt.forward(self.rec.stop_recording())
 
-    def play_skill(self, name_skill: str, name_template: str, skill_parameter: float = 0.0):
-        print(f"{cc.W}Executing {name_skill} with object {name_template} (same skill as template for simplicity){cc.E}", flush=True)
+    def play_skill(self, name_skill: str, name_template: str, skill_parameter: float = 0.0, simplify=True):
+        """ When simplify==True, target_object == target_actopm
+        """
+        if name_skill == "":
+            self.speak(f"No action found, try again")
+            return 
+
+        if name_template == "" and simplify:
+            name_template = name_skill # simplified
+            self.speak(f"No object specified! The object is set to {name_template} because Running simplified!")
+        elif simplify:
+            self.speak(f"Your object: {name_template} is changed to {name_skill}, because Running simplified!")
+            name_template = name_skill # simplified
+
+        self.speak(f"Executing {name_skill} with object {name_template}!")
+
         if self.dry_run:
             print("Dry run; Returning", flush=True)
             return
@@ -99,6 +107,7 @@ class HRI(Feedback_for_HRI, LfD):
         print(f"1. Speech to text; file: {recording_name}", flush=True)
         sentence_text = self.stt.forward(recording_name)
         print("Sentence text: ", sentence_text, flush=True)
+        self.speak(f"You said: {sentence_text}")
         print("2. Sentence processing", flush=True)
         output = self.sentence_processor.predict(sentence_text)
 
@@ -106,13 +115,11 @@ class HRI(Feedback_for_HRI, LfD):
             if isinstance(output[k], np.ndarray):
                 output[k] = list(output[k])
 
-        target_action = map_instruction_words(output["target_action"], self.user)
-        self.play_skill(target_action, target_action)
+        print("Sentence processing output: ", output, flush=True)
 
-    def listen_for_voice_commands(self):
-        with keyboard.Listener(on_press=self.on_press, on_release=self.on_release) as listener:
-            print(f"Press and hold 'r' record...", flush=True)
-            listener.join()
+        target_action, target_object = map_instruction_words(output, self.user)
+        self.play_skill(target_action, target_object)
+
 
     def load_morph_trajectory(self, name_trajectory, morph_parameter: float):
         
@@ -150,22 +157,25 @@ class Link():
                  user_name, 
                  action_template, 
                  object_template, 
-                 action_word, 
-                 action_gesture,
+                 action_words, 
+                 object_words,
+                 action_gestures,
                  ):
         self.user_name = user_name 
         self.action_template = action_template 
         self.object_template = object_template 
-        self.action_word = action_word 
-        self.action_gesture = action_gesture
+        self.action_words = action_words 
+        self.object_words = object_words
+        self.action_gestures = action_gestures
 
     def save(self):
         new_link = {
             "user": self.user_name,
             "action_template": self.action_template, # e.g., push
             "object_template": self.object_template, # e.g., cube_template - cube
-            "action_word": self.action_word, # e.g., "push"
-            "action_gesture": self.action_gesture, # e.g., "grab" + "swipe right"
+            "action_words": list(self.action_words), # e.g., ["push"]
+            "object_words": list(self.object_words),
+            "action_gestures": self.action_gestures, # e.g., "grab" + "swipe right"
         }
         try:
             data_dict = yaml.safe_load(open(f"{hri_manager.package_path}/links/{self.user_name}_links.yaml", mode="r"))
@@ -173,7 +183,8 @@ class Link():
             data_dict = {
                     "user": self.user_name,
                     "actions": [],
-                    "action_words": [],
+                    "all_action_words": [],
+                    "all_object_action_words": [],
                     "links": {},
                 }
             with open(f"{hri_manager.package_path}/links/{self.user_name}_links.yaml", mode="w") as file:
@@ -183,8 +194,13 @@ class Link():
         if new_link["action_template"] not in data_dict["actions"]:
             data_dict["actions"].append(new_link["action_template"])
 
-        if new_link["action_word"] not in data_dict["action_words"]:
-            data_dict["action_words"].append(new_link["action_word"])
+        for action_word in new_link["action_words"]: 
+            if action_word not in data_dict["all_action_words"]:
+                data_dict["all_action_words"].append(action_word)
+
+        for object_action_word in new_link["object_words"]:
+            if object_action_word not in data_dict["all_object_action_words"]:
+                data_dict["all_object_action_words"].append(object_action_word)
 
         # Add the new link to links with a unique key
         new_link_name = f"link{len(data_dict['links']) + 1}"  # Generate unique link name
@@ -206,21 +222,37 @@ class Link():
         assert Path(object_template_path).is_dir(), f"{object_template_path} doesn't exists!"
 
         # does_action_gesture_exist(action_gesture)
-        assert self.action_gesture[0] in hri.gestures.Gs_static, f"{self.action_gesture[0]} is not in {hri.gestures.Gs_static}"
-        assert self.action_gesture[1] in hri.gestures.Gs_dynamic, f"{self.action_gesture[1]} is not in {hri.gestures.Gs_dynamic}" 
+        for action_gesture in self.action_gestures:
+            assert action_gesture[0] in hri.gestures.Gs_static, f"{action_gesture[0]} is not in {hri.gestures.Gs_static}"
+            assert action_gesture[1] in hri.gestures.Gs_dynamic, f"{action_gesture[1]} is not in {hri.gestures.Gs_dynamic}" 
 
 
 import yaml
 import hri_manager
 
-def map_instruction_words(action, user:str):
+def map_instruction_words(output, user:str):
+    action = output['target_action'] # e.g., open
+    object = output['target_object'] # e.g., drawer
+    mapped_action = ""
+    mapped_object = ""
+
     links_dict = yaml.safe_load(open(f"{hri_manager.package_path}/links/{user}_links.yaml", mode='r'))
     
-    action = action.lower() # user says e.g., "I eehhh pick up eeeehhh. "
-    for _,link in links_dict['links'].items(): # link action word is strictly "pick up"
-        if link['action_word'].lower() in action:  # checks if "pick up" is in the "I eehhh pick up eeeehhh. ". 
-            return link["action_template"]
-    return ""
+    action = action.lower() 
+    for _,link in links_dict['links'].items(): 
+        for action_wd in link['action_words']:
+            if action_wd.lower() in action:  
+                mapped_action = link["action_template"]
+                break
+        
+    action = action.lower()
+    for _,link in links_dict['links'].items():
+        for object_wd in link['object_action_words']:
+            if object_wd.lower() in object: 
+                mapped_object = link["object_template"]
+                break
+
+    return mapped_action, mapped_object
 
 
 

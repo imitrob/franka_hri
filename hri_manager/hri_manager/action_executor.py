@@ -9,11 +9,11 @@ from hri_msgs.msg import HRICommand as HRICommandMSG
 
 from hri_manager.hri import HRI
 
-
+import argparse
 
 class ActionExecutor():
-    def __init__(self, listener_topics=["gestures", "nl"], dry_run:bool = False):
-        self.hri = HRI(tts_enabled=False, dry_run=dry_run)
+    def __init__(self, name_user: str, listener_topics=["gestures", "nl"], dry_run:bool = False):
+        self.hri = HRI(name_user=name_user,tts_enabled=True, dry_run=dry_run)
 
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
         for mod in listener_topics:
@@ -28,10 +28,13 @@ class ActionExecutor():
         self.hri.play_skill(hricommand.target_action, name_template=hricommand.target_action)
 
 def main(dry_run: bool):
+    parser = argparse.ArgumentParser(description="My ROS 2 Node")
+    parser.add_argument('--name_user', type=str, help='The user name')
+    args = parser.parse_args()
+
     rclpy.init()
-    node = ActionExecutor(dry_run=dry_run)
-    print("Listening for voice commands", flush=True)
-    node.hri.listen_for_voice_commands()
+    node = ActionExecutor(name_user=args.name_user, dry_run=dry_run)
+    node.hri.speak(f"Hi, {node.hri.user}! You can press 'R' to start recording")
     try:
         while True:
             input("")
