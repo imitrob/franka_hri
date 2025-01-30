@@ -24,6 +24,7 @@ def get_gpu_memory():
 get_gpu_memory()
 
 from hri_manager.feedback_for_hri import Feedback_for_HRI
+from skills_manager.skill import Skill
 
 class HRI(Feedback_for_HRI, LfD):
     def __init__(self,
@@ -57,7 +58,7 @@ class HRI(Feedback_for_HRI, LfD):
         input("Press enter to finish")
         return self.stt.forward(self.rec.stop_recording())
 
-    def play_skill(self, name_skill: str, name_template: str, skill_parameter: float = 0.0, simplify=True):
+    def play_skill(self, name_skill: str, name_template: str, skill_parameter: float = None, simplify=True):
         """ When simplify==True, target_object == target_actopm
         """
         if name_skill == "":
@@ -89,8 +90,10 @@ class HRI(Feedback_for_HRI, LfD):
         self.compute_final_transform() 
 
         try:
-            self.load(name_skill)
-            # self.load_morph_trajectory(skill_parameter, morph_parameter=skill_parameter)
+            if skill_parameter is not None:
+                self.load_morph_trajectory(skill_parameter, morph_parameter=skill_parameter)
+            else:
+                self.load(name_skill)
             print(f"Execution", flush=True)
             self.execute()
         except KeyboardInterrupt:
@@ -123,31 +126,18 @@ class HRI(Feedback_for_HRI, LfD):
 
     def load_morph_trajectory(self, name_trajectory, morph_parameter: float):
         
-        Ts = []
-        for file in [name_trajectory, name_trajectory+"_alt"]:
-            data = np.load(trajectory_data.package_path + '/trajectories/' + str(file) + '.npz')
-            
-            T = {}
-            T['recorded_traj'] = data['traj']
-            T['recorded_ori_wxyz'] = data['ori']
-            T['recorded_gripper'] = data['grip']
-            T['recorded_img'] = data['img']
-            T['recorded_img_feedback_flag'] = data['img_feedback_flag']
-            T['recorded_spiral_flag'] = data['spiral_flag']
-            if self.final_transform is not None:
-                T['recorded_traj'], T['recorded_ori_wxyz'] = self.transform_traj_ori(T['recorded_traj'], T['recorded_ori_wxyz'], self.final_transform)
-            T['filename']=str(file)
-            Ts.append(T)
+        skill1 = Skill().from_file(name_trajectory)
+        skill2 = Skill().from_file(name_trajectory+"_alt")
 
-        data =  morth_trajectories(Ts, morph_parameter)
+        morph_skill = skill1.morth_trajectories(skill2, morph_parameter)
 
-        self.recorded_traj = data['traj']
-        self.recorded_ori_wxyz = data['ori']
-        self.recorded_gripper = data['grip']
-        self.recorded_img = data['img']
-        self.recorded_img_feedback_flag = data['img_feedback_flag']
-        self.recorded_spiral_flag = data['spiral_flag']
-        self.filename=str(file)
+        self.recorded_traj = morph_skill.traj_T
+        self.recorded_ori_wxyz = morph_skill.ori_T
+        self.recorded_gripper = morph_skill.grip_T
+        self.recorded_img = morph_skill.img
+        self.recorded_img_feedback_flag = morph_skill.img_feedback_flag_T
+        self.recorded_spiral_flag = morph_skill.spiral_flag_T
+        self.filename=str(morph_skill.filename)
 
 import trajectory_data, object_localization, hri_manager, yaml
 from pathlib import Path
@@ -253,12 +243,6 @@ def map_instruction_words(output, user:str):
                 break
 
     return mapped_action, mapped_object
-
-
-
-def morth_trajectories(Ts, morph_parameter: float):
-    # TODO
-    return Ts[0]
 
 def main():
     import rclpy
