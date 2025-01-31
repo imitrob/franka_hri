@@ -13,7 +13,7 @@ cd lfd_ws/src
 git clone git@gitlab.ciirc.cvut.cz:imitrob/franka_hri.git
 git clone https://github.com/imitrob/franka_learning_from_demonstrations_ros2
 git clone https://github.com/ichores-research/natural_language_processing.git
-git clone https://github.com/imitrob/teleop_gesture_toolbox.git --branch mediapipe --depth 1
+git clone https://github.com/imitrob/teleop_gesture_toolbox.git --depth 1
 
 conda env create -f franka_hri/environment.yml
 conda activate lfd
