@@ -2,8 +2,8 @@ from copy import deepcopy
 import json
 from typing import Any, Dict, List
 
-from naive_manager.modality_merger import merge_probabilities
-from naive_manager.probs_vector import EntropyProbsVector, NaiveProbsVector, ProbsVector
+from naive_merger.modality_merger import merge_probabilities
+from naive_merger.probs_vector import EntropyProbsVector, NaiveProbsVector, ProbsVector
 
 THRESHOLDING = "entropy"
 
@@ -12,11 +12,12 @@ class HriCommand():
         self,
         arity_names: List[str],
         pv_dict: Dict[str, Any],
+        stamps = None,
         ):
         self.arity_names = arity_names
         self.pv_dict = pv_dict
         self.results_dict = self.apply_thresholding()
-
+        self.stamps = stamps
     
     @property
     def target_action(self):
@@ -72,9 +73,12 @@ class HriCommand():
                 arity_names.append(k.split("_probs")[0])
 
         pv_dict = {}
+        stamps = {}
         for arity_type in arity_names:
             names = msg_dict[arity_type+"_names"]
             probs = msg_dict[arity_type+"_probs"]
+            if (f"target_{arity_type}_timestamp") in msg_dict:
+                stamps[arity_type] = msg_dict[f"target_{arity_type}_timestamp"]
 
             if thresholding == "no thresholding":
                 pv_dict[arity_type] = NaiveProbsVector(probs, names)
@@ -84,7 +88,7 @@ class HriCommand():
                 pv_dict[arity_type] = EntropyProbsVector(probs, names)
             else: raise Exception()
 
-        return cls(arity_names, pv_dict)
+        return cls(arity_names, pv_dict, stamps)
     
     @classmethod
     def from_dict(cls, arity_names, data_dict, thresholding):
@@ -129,3 +133,21 @@ class HriCommand():
             if self.pv_dict == other.pv_dict:
                 return True
         return False
+    
+    def get_action_stamp(self):
+        if 'action' in self.stamps:
+            return self.stamps["action"]
+        else:
+            return -1.0
+
+    def get_object_stamp(self):
+        if 'action' in self.stamps:
+            return self.stamps["action"]
+        else:
+            return -1.0
+
+    def get_target_timestamped_list(self):
+        return [
+            [self.get_action_stamp(), self.target_action],
+            [self.get_object_stamp(), self.target_object],
+        ]

@@ -1,0 +1,60 @@
+user: casper
+actions:
+- sponge_wipe
+- open_drawer
+- handle_screwdriver
+- pick_lid
+all_action_words:
+- wipe
+- open
+- hand me
+- pick
+all_object_action_words:
+- sponge
+- drawer
+- screwdriver
+- pick_lid
+links:
+  link1:
+    user: casper
+    action_template: sponge_wipe
+    object_template: sponge_wipe
+    action_words: 
+    - wipe
+    - clean
+    object_action_words: 
+    - sponge
+    action_gestures:
+    - [five, swipe_left]
+  link2:
+    user: casper
+    action_template: open_drawer
+    object_template: open_drawer
+    action_words: 
+    - open
+    object_action_words: 
+    - drawer
+    action_gestures:
+    - [grab, no_moving]
+  link3:
+    user: casper
+    action_template: handle_screwdriver
+    object_template: handle_screwdriver
+    action_words: 
+    - hand me
+    - hand
+    object_action_words: 
+    - screwdriver
+    action_gestures:
+    - [pinch, swipe_down]
+  link4:
+    user: casper
+    action_template: pick_lid
+    object_template: pick_lid
+    action_words:
+    - pick 
+    object_action_words:
+    - lid
+    - lady
+    action_gestures:
+    - [grab, swipe_up]

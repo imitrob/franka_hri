@@ -3,6 +3,8 @@
 from skills_manager.feedback import Feedback
 from pynput.keyboard import KeyCode, Key
 
+from std_msgs.msg import String
+
 class Feedback_for_HRI(Feedback):
     def __init__(self):
         super(Feedback_for_HRI, self).__init__()
@@ -21,5 +23,5 @@ class Feedback_for_HRI(Feedback):
                 self.is_recording = False
                 recording_name = self.rec.stop_recording()
                 if recording_name is not None:
-                    print("Processing started", flush=True)
-                    self.nl_forward(recording_name)
+                    self.voicerecord_pub.publish(String(data=str(recording_name)))
+                    print("Voice recorded and msg sent", flush=True)

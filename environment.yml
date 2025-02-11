@@ -47,7 +47,7 @@ dependencies:
 - qt-webengine=5.15.8
 - pyaudio
 - gdown
-# - nltk # for whisperx
+- nltk # for whisperx
 - pip:
   - phonemizer
   - munch
@@ -56,8 +56,5 @@ dependencies:
   - soundfile
   - playsound
   - panda-python
-#  - mediapipe # ?
-#  - whisperx 
-# - faster-whisper=1.1.0
-# - ctranslate2=3.24.0
-# - pyannote.audio==3.3.2
+  - faster-whisper=1.1.0 
+  - ctranslate2=3.24.0 

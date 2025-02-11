@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rclpy, argparse
-from hri_manager.hri import HRI, Link
+from hri_manager.hri import HRI
+from hri_manager.hri_link import Link
 
 def main():
     parser = argparse.ArgumentParser(description="My ROS 2 Node")

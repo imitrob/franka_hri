@@ -17,6 +17,10 @@ git clone https://github.com/imitrob/teleop_gesture_toolbox.git --depth 1
 
 conda env create -f franka_hri/environment.yml
 conda activate lfd
+# Hack to use whisperx with Python3.11
+pip install pyannote.audio==3.3.2 --no-deps
+pip install -r <(pip show pyannote.audio | grep Requires | cut -d ' ' -f2- | tr ', ' '\n' | grep -v torchaudio)
+pip install whisperx --no-deps
 
 cd ..
 colcon build --symlink-install
@@ -30,6 +34,7 @@ ln -s ~/lfd_ws/src/franka_learning_from_demonstrations_ros2/object_localization/
 ln -s ~/lfd_ws/src/franka_learning_from_demonstrations_ros2/object_localization/config ~/lfd_ws/build/object_localization/config
 ln -s ~/lfd_ws/src/franka_learning_from_demonstrations_ros2/trajectory_data/trajectories ~/lfd_ws/build/trajectory_data/trajectories
 ln -s ~/lfd_ws/src/franka_hri/hri_manager/links ~/lfd_ws/build/hri_manager/links
+rm ~/lfd_ws/build/gesture_detector/gesture_detector/saved_models
 ln -s ~/lfd_ws/src/teleop_gesture_toolbox/gesture_detector/saved_models ~/lfd_ws/build/gesture_detector/gesture_detector/saved_models
 ```
 
