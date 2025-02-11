@@ -3,7 +3,7 @@ import argparse
 from copy import deepcopy
 from typing import Dict, List
 import numpy as np
-from hri_manager.utils import normalized_entropy, diagonal_cross_entropy, is_zeros
+from naive_merger.utils import normalized_entropy, diagonal_cross_entropy, is_zeros
 
 PRIOR_CONFIDANCE_NL = 0.99
 PRIOR_CONFIDANCE_GS = 0.8

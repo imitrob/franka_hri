@@ -2,7 +2,7 @@ from typing import List
 import numpy as np
 from copy import deepcopy
 
-from hri_manager.utils import cc, diagonal_cross_entropy, normalized_entropy
+from naive_merger.utils import cc, diagonal_cross_entropy, normalized_entropy
 
 MATCH_THRESHOLD = 0.4
 CLEAR_THRESHOLD = 0.4

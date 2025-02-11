@@ -2,8 +2,8 @@ from copy import deepcopy
 import json
 from typing import Any, Dict, List
 
-from hri_manager.modality_merger import merge_probabilities
-from hri_manager.probs_vector import EntropyProbsVector, NaiveProbsVector, ProbsVector
+from naive_manager.modality_merger import merge_probabilities
+from naive_manager.probs_vector import EntropyProbsVector, NaiveProbsVector, ProbsVector
 
 THRESHOLDING = "entropy"
 

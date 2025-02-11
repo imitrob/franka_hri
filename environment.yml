@@ -1,10 +1,10 @@
-name: lfd
+name: gesturenlu
 channels:
+- pytorch
+- nvidia
 - conda-forge
 - robostack-staging
 - defaults
-- pytorch
-- nvidia
 dependencies:
 - python=3.11 # Make sure the correct Leap Python version is installed (https://github.com/petrvancjr/LeapAPI)
 - numpy=1.26.4 # 1.24.3 Giovanni
@@ -37,7 +37,7 @@ dependencies:
 - pytorch-cuda=11.8
 - cudatoolkit=11.8
 - torchvision
-#- torchaudio
+- torchaudio=2.1.2=py311_cu118
 - python-sounddevice
 - transformers
 - accelerate
@@ -47,6 +47,7 @@ dependencies:
 - qt-webengine=5.15.8
 - pyaudio
 - gdown
+# - nltk # for whisperx
 - pip:
   - phonemizer
   - munch
@@ -56,3 +57,7 @@ dependencies:
   - playsound
   - panda-python
 #  - mediapipe # ?
+#  - whisperx 
+# - faster-whisper=1.1.0
+# - ctranslate2=3.24.0
+# - pyannote.audio==3.3.2
