@@ -45,6 +45,10 @@ class Link():
         if new_link["action_template"] not in data_dict["actions"]:
             data_dict["actions"].append(new_link["action_template"])
 
+        # Add the action_template to actions list if not present
+        if new_link["object_template"] not in data_dict["objects"]:
+            data_dict["objects"].append(new_link["object_template"])
+
         for action_word in new_link["action_words"]: 
             if action_word not in data_dict["all_action_words"]:
                 data_dict["all_action_words"].append(action_word)

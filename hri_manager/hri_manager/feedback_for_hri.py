@@ -11,17 +11,17 @@ class Feedback_for_HRI(Feedback):
         self.is_recording = False
         
     def _on_press(self, key):
-        if key == KeyCode.from_char("r"):
+        if key == KeyCode.from_char("+"):
             if not self.is_recording:
                 self.is_recording = True
                 self.rec.start_recording()
         super()._on_press(key)
 
     def _on_release(self, key):
-        if key == KeyCode.from_char("r"):
+        if key == KeyCode.from_char("+"):
             if self.is_recording:
                 self.is_recording = False
-                recording_name = self.rec.stop_recording()
+                recording_name, start_time = self.rec.stop_recording()
                 if recording_name is not None:
-                    self.voicerecord_pub.publish(String(data=str(recording_name)))
+                    self.voicerecord_pub.publish(String(data=f'{{"file": "{recording_name}", "timestamp": {start_time} }}'))
                     print("Voice recorded and msg sent", flush=True)

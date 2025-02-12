@@ -10,9 +10,11 @@ import subprocess
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from skills_manager.ros_utils import SpinningRosNode
 from hri_manager.feedback_for_hri import Feedback_for_HRI
-import numpy as np
+from naive_merger.utils import cc
 
 from std_msgs.msg import String
+
+from hri_manager.user_preference_getter import UserPreferenceGetter
 
 def get_gpu_memory():
     command = "nvidia-smi --query-gpu=memory.free --format=csv"
@@ -20,7 +22,7 @@ def get_gpu_memory():
     memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
     return memory_free_values
 
-class HCI(Feedback_for_HRI, SpinningRosNode):
+class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
     def __init__(self,
                  name_user = None,
                  nlp_model_name = None,
@@ -40,7 +42,7 @@ class HCI(Feedback_for_HRI, SpinningRosNode):
         self.rec = AudioRecorder()
         print(f"3/3 Init LM: VRAM memory left: {get_gpu_memory()}", flush=True)
         self.sentence_processor = SentenceProcessor(model_name=self.nlp_model_name)
-        print(f"Done: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"{cc.H}Initialization Done{cc.E}: VRAM memory left: {get_gpu_memory()}", flush=True)
 
         self.gestures = GestureSentenceGetter(self)
 
@@ -50,7 +52,8 @@ class HCI(Feedback_for_HRI, SpinningRosNode):
     def listen_user(self):
         self.rec.start_recording()
         input("Press enter to finish")
-        return self.stt.forward(self.rec.stop_recording())
+        file, _ = self.rec.stop_recording()
+        return self.stt.forward(file)
 
     def speak(self, text):
         if self.tts_enabled:
@@ -59,30 +62,20 @@ class HCI(Feedback_for_HRI, SpinningRosNode):
         print(text, flush=True)
         print("", flush=True)
         
-    def play_skill(self, target_action, target_object):
-        print(f"Playing skill: {target_action} with {target_object}", flush=True)
+    def play_skill(self, name_skill, name_template, skill_parameter: float = None, simplify=True):
+        if name_skill == "":
+            self.speak(f"No action found, try again")
+            return 
 
+        if name_template == "" and simplify:
+            name_template = name_skill # simplified
+            self.speak(f"No object specified! The object is set to {name_template} because Running simplified!")
+        elif simplify:
+            self.speak(f"Your object: {name_template} is changed to {name_skill}, because Running simplified!")
+            name_template = name_skill # simplified
 
-def map_instruction_words(output, user:str):
-    action = output['target_action'] # e.g., open
-    object = output['target_object'] # e.g., drawer
-    mapped_action = ""
-    mapped_object = ""
+        self.speak(f"Executing {name_skill} with object {name_template}!")
 
-    links_dict = yaml.safe_load(open(f"{hri_manager.package_path}/links/{user}_links.yaml", mode='r'))
+        print("Dry run; Returning", flush=True)
+        return
     
-    action = action.lower() 
-    for _,link in links_dict['links'].items(): 
-        for action_wd in link['action_words']:
-            if action_wd.lower() in action:  
-                mapped_action = link["action_template"]
-                break
-        
-    action = action.lower()
-    for _,link in links_dict['links'].items():
-        for object_wd in link['object_action_words']:
-            if object_wd.lower() in object: 
-                mapped_object = link["object_template"]
-                break
-
-    return mapped_action, mapped_object

@@ -141,8 +141,8 @@ class HriCommand():
             return -1.0
 
     def get_object_stamp(self):
-        if 'action' in self.stamps:
-            return self.stamps["action"]
+        if 'object' in self.stamps:
+            return self.stamps["object"]
         else:
             return -1.0
 

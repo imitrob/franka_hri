@@ -2,14 +2,13 @@
 #!/usr/bin/env python
 from hri_manager.HriCommand import HriCommand
 from hri_manager.hri import HRI
-from hri_manager.hci import map_instruction_words
 
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from hri_msgs.msg import HRICommand as HRICommandMSG
 from std_msgs.msg import String
-import argparse
+import argparse, json
 import numpy as np
 
 class ActionExecutor():
@@ -21,7 +20,8 @@ class ActionExecutor():
         self.hri.create_subscription(String, '/recorded_file', self.process_and_play_skill_callback, qos_profile=qos)
 
     def process_and_play_skill_callback(self, msg):
-        recording_name = msg.data
+        recording_name = json.loads(str(msg.data))['file']
+        
         print(f"1. Speech to text; file: {recording_name}", flush=True)
         sentence_text = self.hri.stt.forward(recording_name)
         print("Sentence text: ", sentence_text, flush=True)
@@ -35,7 +35,7 @@ class ActionExecutor():
 
         print("Sentence processing output: ", output, flush=True)
 
-        target_action, target_object = map_instruction_words(output, self.hri.user)
+        target_action, target_object = self.hri.map_instruction_words(output)
         self.hri.play_skill(target_action, target_object)
 
     def play_skill_callback(self, msg):

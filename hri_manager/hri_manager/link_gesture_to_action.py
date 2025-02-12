@@ -7,6 +7,7 @@ def main():
     parser = argparse.ArgumentParser(description="My ROS 2 Node")
     parser.add_argument('--name_user', type=str, help='The user name')
     parser.add_argument('--name_skill', type=str, help='Skill name')
+    parser.add_argument('--name_object', type=str, help='Object name', default="")
     parser.add_argument('--dry_run', type=bool, help='Dont play skill at start', default=True)
     parser.add_argument('--tts_enabled', type=bool, help='', default=True)
     args = parser.parse_args()
@@ -15,7 +16,11 @@ def main():
     hri = HRI(name_user=args.name_user, tts_enabled=args.tts_enabled, dry_run=args.dry_run)
     hri.speak("Showing the action!")
     hri.home()
-    hri.play_skill(args.name_skill, args.name_skill)
+
+    if args.name_object == "": # No name_object given, Object has same name as action
+        args.name_object = args.name_skill
+
+    hri.play_skill(args.name_skill, args.name_object)
     
     action_words = []
     while True:

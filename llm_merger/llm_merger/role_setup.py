@@ -50,8 +50,12 @@ Examples:
 
 
 
-def get_role_description(A, O):
-    d = ROLE_DESCRIPTION
+def get_role_description(A, O, version="v1"):
+
+    if version == "v1":
+        d = ROLE_DESCRIPTION
+    else:
+        raise Exception()
     d.replace("<insert_actions>", ",".join(A))
     d.replace("<insert_objects>", ",".join(O))
 

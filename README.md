@@ -1,10 +1,13 @@
 
-# Franka HRI
+# Human-Robot Interaction for Franka Emika Panda robot.
 
-Parts:
-1. Make link from gesture and nl input to robotic action.
-2. Execute commands
+Command your robot with voice commands and hand gestures. Steps:
+1. Teach new robotic actions: skills (as kinesthetic demonstrations)
+2. Create user profile: Which skills to execute when certain action word or gesture is observed
+3. Execute skills!
 
+LLM Merger:
+1. 
 ## Install 
 
 ```
@@ -51,44 +54,39 @@ Record your own set of skills:
 0. Move to home `ros2 launch skills_manager home_launch.py`
 1. Record template `ros2 launch object_localization record_template_launch.py template_name:=<your template>`
 2. Record skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager record_skill_launch.py name_skill:=<your skill>`
-Note: if unsuccessful, always do homing.
-3. Play the skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager plau_skill_launch.py name_skill:=<your skill> name_template:=<your template>`
+Note: if record skill and you want to record it again, always do homing before the new recording attempt.
+1. Play the skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager plau_skill_launch.py name_skill:=<your skill> name_template:=<your template>`
+See saved skills in `trajectory_data/trajectories` folder.
 
 ## Part 2: Link gestures to actions
 
-1. `lfdenv; ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=melichar`
+1. `lfdenv; ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=casper`
 2. `lfdenv; ros2 launch object_localization box_localization_launch.py`
-3. `lfdenv; ros2 run hri_manager link_gesture_to_action --name_user melichar --name_skill touch_sponge`
+3. `lfdenv; ros2 run hri_manager link_gesture_to_action --name_user casper --name_skill touch_sponge`
 
 - Note: Run `localhost:8000` to see which gestures are available
 - Assign name of the user and name of the skills
-- Check the link `links` folder for specific user if it is correct
+- Check the new link in `hri_manager/links` folder if it is correct
+- Or you may want to adjust the links `.yaml` based on your needs
 
 ## (optional) Part 3: Check the commands for exeucting
 
-1. `lfdenv; ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=melichar`
+1. `lfdenv; ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=casper`
 2. `lfdenv; ros2 launch object_localization box_localization_launch.py`
-3. `lfdemv; ros2 run hri_manager action_executor_dry_run --name_user melichar`
+3. Test: `lfdemv; ros2 run hri_manager action_executor_dry_run --name_user casper` Run: `lfdemv; ros2 run hri_manager action_executor --name_user casper` 
 
 Tuning:
 Play with [sentence_processor.py:ROLE_DESCRIPTION](natural_language_processing/natural_language_processing/sentence_instruct_transformer/sentence_processor.py)
 
 
-## Part 2: HRI Magnum Opus
-
-```
-lfdenv; ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user:=Melichar
-```
-
-```
-lfdenv; ros2 launch object_localization box_localization_launch.py
-```
-
-```
-lfdenv; ros2 run hri_manager action_executor
-```
 
 
+
+## LLM Merger
+
+Usage:
+1. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=casper`
+2. `ros2 llm_merger llm_merger --name_user casper`
 
 ## User study narration
 
@@ -117,10 +115,6 @@ lfdenv; ros2 run hri_manager action_executor
 
 ### Action Gestures
 
-
-
-
-
 - [ ] idea - extension - users pick their own gestures versus user not to pick gestures
 
 ### Teach parametric gestures
@@ -142,8 +136,6 @@ lfdenv; ros2 run hri_manager action_executor
 ## TODOs:
 
 - [ ] Note somewhere -> I changed 1. default mapping and 2. ignored gestures 
-- [ ] rotated circle for proceeding gestures
-- [ ] web page, grab -> fist, put pictures
 - [ ] LM translator feature: Human description of roundness is converted by LM to parameter float 0-1
 
 ukazat akci pour a pak akci pour s parameterem = 0. Par rict userovi o provedeni teto nove akce s tim parametrem

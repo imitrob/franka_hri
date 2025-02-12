@@ -4,6 +4,11 @@ actions:
 - open_drawer
 - handle_screwdriver
 - pick_lid
+objects:
+- sponge_wipe
+- open_drawer
+- handle_screwdriver
+- pick_lid
 all_action_words:
 - wipe
 - open

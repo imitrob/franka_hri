@@ -21,6 +21,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "llm_merger = llm_merger.llm_model:main",
         ],
     },
 )
