@@ -59,23 +59,6 @@ class HCI(Feedback_for_HRI, SpinningRosNode):
         print(text, flush=True)
         print("", flush=True)
         
-    def nl_forward(self, recording_name: str):
-        print(f"1. Speech to text; file: {recording_name}", flush=True)
-        sentence_text = self.stt.forward(recording_name)
-        print("Sentence text: ", sentence_text, flush=True)
-        self.speak(f"You said: {sentence_text}")
-        print("2. Sentence processing", flush=True)
-        output = self.sentence_processor.predict(sentence_text)
-
-        for k in output.keys():
-            if isinstance(output[k], np.ndarray):
-                output[k] = list(output[k])
-
-        print("Sentence processing output: ", output, flush=True)
-
-        target_action, target_object = map_instruction_words(output, self.user)
-        self.play_skill(target_action, target_object)
-
     def play_skill(self, target_action, target_object):
         print(f"Playing skill: {target_action} with {target_object}", flush=True)
 
