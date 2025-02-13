@@ -23,6 +23,7 @@ conda activate lfd
 pip install pyannote.audio==3.3.2 --no-deps
 pip install -r <(pip show pyannote.audio | grep Requires | cut -d ' ' -f2- | tr ', ' '\n' | grep -v torchaudio)
 pip install whisperx --no-deps
+pip install librosa
 
 cd ..
 colcon build --symlink-install
@@ -38,6 +39,7 @@ ln -s ~/lfd_ws/src/franka_learning_from_demonstrations_ros2/trajectory_data/traj
 ln -s ~/lfd_ws/src/franka_hri/hri_manager/links ~/lfd_ws/build/hri_manager/links
 rm ~/lfd_ws/build/gesture_detector/gesture_detector/saved_models
 ln -s ~/lfd_ws/src/teleop_gesture_toolbox/gesture_detector/saved_models ~/lfd_ws/build/gesture_detector/gesture_detector/saved_models
+ln -s ~/lfd_ws/src/teleop_gesture_toolbox/scene_getter/scene_getter/scene_makers/scenes ~/lfd_ws/build/scene_getter/scene_getter/scene_makers/scenes
 ```
 
 `alias lfdenv='conda activate lfd'; source ~/<your_ws>/install/setup.bash`
@@ -78,10 +80,7 @@ Tuning:
 Play with [sentence_processor.py:ROLE_DESCRIPTION](natural_language_processing/natural_language_processing/sentence_instruct_transformer/sentence_processor.py)
 
 
-
-
-
-## LLM Merger
+# TRANSFORMERGE
 
 Usage:
 1. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=casper`
@@ -89,17 +88,32 @@ Usage:
 
 Parameters:
 1. Set of Gestures: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
-  - You get set of gesture poses and gesture swipes
-  - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length`
-  - 
-2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template.
-3. 
+  - You get set of gesture poses and gesture swipes (const)
+  - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length` (calibration)
+  - Ignored gestures that won't trigger execution: `gestures_processor.py:GestureSentence.ignored_gestures` (const)
+2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template. (const)
+3. Scene objects setup. Choore or define scene properties: `scenes/scene_1.yaml` and change `scene_getter.scene_makers.mocked_scene_maker.py:SCENE_FILE` (const scene set)
+4. User preferences: `hri_manager/links/<username>_links.yaml` (var)
+5. Merger params:
+  - `--name_user`, The user name, `default="casper"` (var)
+  - `--name_model`, The user name, `default="SultanR/SmolTulu-1.7b-Reinforced"`
+  - `--dry_run`, Dont play skills, `default=True`
+  - `--role_version`, Role description `default="v1"`
+  - `--temperature`, temperature, 0.0 is deterministic, `default=0.0`
+  - `--top_p`, top p', `default=1.0`
+  - `--repetition_penalty`, `default=1.1`
+  - `--max_new_tokens`, max words output, `default=50`
 
+Notes:
+- Gesture episode starts when hand is observed with sensor and ends when hand no longer observed, if any gesture activated, the gesture data "episode" are sent
+- Within gesture episode, you can make action gestures or deictic gestures (point to objects).
+- Pointing gesture (raised point finger) activates Deictic gesture, scene object selection, defined at: `gesture_processor.py:AdaptiveSetup.adaptive_setup`.
+- In this version, scene object locations (for pointing gesture) are set as constants (`scene_getter.scene_makers.mocked_scene_maker.py` loads scene from `scenes` folder).
+- When doing execution, the correct location of scene object is improved based on localizer.
 
-## User study narration
+## GESTURE-NLU: User study narration
 
 ### Introduction
-
 
 - Introduce the reach of the gestures sensor
 - Single gesture has a pose and a swipe
@@ -108,13 +122,11 @@ Parameters:
   - Say that no-moving dynamic gesture is not allowed
 - Absolute position of hand is not used, e.g., hand orientation up or down
 
-
 ### Calibration
 
 - Try some gestures
 - Tune the activation parameter
-- [ ] User adjusts the slider of gesture activation
-
+- User adjusts the slider of gesture activation
 
 ### Linking the commands
 
@@ -143,7 +155,9 @@ Parameters:
 
 ## TODOs:
 
-- [ ] Note somewhere -> I changed 1. default mapping and 2. ignored gestures 
 - [ ] LM translator feature: Human description of roundness is converted by LM to parameter float 0-1
 
 ukazat akci pour a pak akci pour s parameterem = 0. Par rict userovi o provedeni teto nove akce s tim parametrem
+
+
+

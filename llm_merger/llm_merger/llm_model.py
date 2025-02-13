@@ -25,6 +25,7 @@ class HRIMerger():
                 model_name: str,
                 role_version: str,
                 dry_run: bool = True,
+                merge_approach: str = "deterministic",
                 ):
         """_summary_
 
@@ -33,11 +34,13 @@ class HRIMerger():
             model_name (str): _description_
             dry_run (bool, optional): _description_. Defaults to True.
         """   
+        self.merge_approach = merge_approach
         if dry_run: # No robot
             self.hri = HCI(
                 name_user = name_user,
                 nlp_model_name = model_name,
                 tts_enabled = True,
+                stt_type = self.merge_approach
             )
         else: # With robot control
             self.hri = HRI(
@@ -45,6 +48,7 @@ class HRIMerger():
                 tts_enabled = True,
                 dry_run = False,
                 nlp_model_name = model_name,
+                stt_type = self.merge_approach
             )
         self.role_description = get_role_description(self.hri.A, O=self.hri.O, version=role_version)     
 
@@ -60,7 +64,7 @@ class HRIMerger():
             time.sleep(RECEIVE_CHECK_INTERVAL)
             if len(self.record_queue) > 0:
                 record_stamped_file_name = self.record_queue.pop()
-                voice_stamped = self.hri.stt.forward_timestamped(record_stamped_file_name)
+                voice_stamped = self.hri.stt.stamped_transcribe(record_stamped_file_name)
 
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
@@ -82,44 +86,43 @@ class HRIMerger():
     def gesture_hricommand_callback(self, msg):
         print(f"Received: {cc.W}Gestures{cc.E}", flush=True)
         hricommand = HriCommand.from_ros(msg)
-        self.gestures_queue.append(hricommand.get_target_timestamped_list())
 
-    def sort_merge(self, gesture_stamped, voice_stamped):
+        # (1/3) NOT SURE ABOUT IMPLEMENTATION: SELECTION OF MERGE TYPE
+        if self.merge_approach == "deterministic":
+            gestures_input = hricommand.get_target_timestamped_list()
+        elif self.merge_approach == "probabilistic":
+            gestures_input = hricommand.get_target_timestamped_probabilistic()
+        else: raise Exception()
+        
+        self.gestures_queue.append(gestures_input)
+
+    def merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
         """ gesture_stamped: [:,0] - timestamps, [:,1] - words 
             voice_stamped:   [:,0] - timestamps, [:,1] - words
         """      
         gesture_stamped.extend(voice_stamped)
-        return sorted(gesture_stamped, key=lambda x: x[0])
+        sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
 
-    def forward(self, 
-                voice_stamped,
-                gesture_stamped, 
-                role_description,
-                max_new_tokens = 50,
-                temperature = 0.0,
-                top_p = 1.0,
-                repetition_penalty = 1.1,
-                ):
+        print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
+        
+        words = np.array(sorted_sentence)[:,1]
+        final_sentence = " ".join(words[words!=None])
+        
+        self.hri.speak(f"Merged sentence is: {final_sentence}")
+        
+        predicted = self.hri.sentence_processor.predict(final_sentence, *args, **kwargs)
+        print(f"Predicted sentence: {predicted}", flush=True)
+        return predicted
+
+    def forward(self, voice_stamped, gesture_stamped, *args, **kwargs):
         print("Voice stamped: ", voice_stamped, flush=True)
         print("Gesture stamped: ", gesture_stamped, flush=True)
         print_modalities(voice_stamped, gesture_stamped)
         self.save(voice_stamped, gesture_stamped)
-        sorted_sentence = self.sort_merge(gesture_stamped, voice_stamped)
-        print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
-        words = np.array(sorted_sentence)[:,1]
-        final_sentence = " ".join(words[words!=None])
-        self.hri.speak(f"Merged sentence is: {final_sentence}")
-        predicted = self.hri.sentence_processor.predict(
-            final_sentence,
-            role_description,
-            max_new_tokens = max_new_tokens, 
-            temperature = temperature, 
-            top_p = top_p,
-            repetition_penalty = repetition_penalty,    
-        )
-        print(f"Predicted sentence: {predicted}", flush=True)
+        
+        predicted = self.merge(gesture_stamped, voice_stamped, *args, **kwargs)
 
-        target_action, target_object = self.hri.map_instruction_words(predicted)
+        target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
         self.hri.play_skill(target_action, target_object)
 
     def save(self, voice_stamped, gesture_stamped):
@@ -128,9 +131,33 @@ class HRIMerger():
             i+=1
         np.savez(f"{llm_merger.path}/saved_inputs/save_{i}", voice_stamped=np.array(voice_stamped), gesture_stamped=np.array(gesture_stamped))
 
+class ProbabilisticHRIMerger(HRIMerger):
+    def merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
+        """ both gesture_stamped and voice_stamped in format:
+        [ # time,  word  : probs, ...
+            [0.0, {"pick": 1.0, "kick": 0.2}],
+            [0.1, {"up": 0.96, "lap": 0.1}],
+        ]
+        """
+        gesture_stamped.extend(voice_stamped)
+        sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
+
+        print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
+        
+        words = np.array(sorted_sentence)[:,1]
+        final_sentence = " ".join(words[words!=None])
+        
+        self.hri.speak(f"Merged sentence is: {final_sentence}")
+        
+        predicted = self.hri.sentence_processor.predict_with_probs(final_sentence, *args, **kwargs)
+        print(f"Predicted sentence: {predicted}", flush=True)
+        return predicted
+
+
 def main():
     parser = argparse.ArgumentParser(description="My ROS 2 Node")
     parser.add_argument('--name_user', type=str, help='The user name', default="casper")
+    parser.add_argument('--merge_approach', type=str, help='deterministic or probabilistic', default="deterministic")
     parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=True)
     parser.add_argument('--role_version', type=str, help='Role description', default="v1")
@@ -141,7 +168,12 @@ def main():
     args = parser.parse_args()
 
     rclpy.init()
-    merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, role_version=args.role_version, dry_run=args.dry_run)
+
+    # (2/3) NOT SURE ABOUT IMPLEMENTATION: SELECTION OF MERGE TYPE
+    if args.merge_approach == "deterministic":
+        merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, role_version=args.role_version, dry_run=args.dry_run, merge_approach=args.merge_approach)
+    elif args.merge_approach == "probabilistic":
+        merger = ProbabilisticHRIMerger(name_user=args.name_user, model_name=args.name_model, role_version=args.role_version, dry_run=args.dry_run, merge_approach=args.merge_approach)
     print(merger.hri.print_user_preferences())
     merger.spin()
 

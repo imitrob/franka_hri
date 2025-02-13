@@ -342,6 +342,10 @@ class ProbsVector(ProbsVectorType):
             return True
         else:
             return False
+    
+    @property
+    def dict(self):
+        return dict(zip(self.names, self.p))
 
 class EntropyProbsVector(ProbsVector):
     def __init__(self, *args, **kwargs):

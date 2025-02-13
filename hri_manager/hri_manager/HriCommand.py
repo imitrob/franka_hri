@@ -151,3 +151,9 @@ class HriCommand():
             [self.get_action_stamp(), self.target_action],
             [self.get_object_stamp(), self.target_object],
         ]
+    
+    def get_target_timestamped_probabilistic(self):
+        return [
+            [self.get_action_stamp(), self.pv_dict["action"].dict],
+            [self.get_object_stamp(), self.pv_dict["object"].dict],
+        ]

@@ -23,7 +23,7 @@ class ActionExecutor():
         recording_name = json.loads(str(msg.data))['file']
         
         print(f"1. Speech to text; file: {recording_name}", flush=True)
-        sentence_text = self.hri.stt.forward(recording_name)
+        sentence_text = self.hri.stt(recording_name)
         print("Sentence text: ", sentence_text, flush=True)
         self.hri.speak(f"You said: {sentence_text}")
         print("2. Sentence processing", flush=True)

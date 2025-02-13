@@ -14,11 +14,13 @@ class HRI(HCI, Feedback_for_HRI, LfD):
                 tts_enabled: bool = True,
                 dry_run: bool = False,
                 nlp_model_name: str = None,
+                stt_type: str = "deterministic",
                 ):
         self.tts_enabled = tts_enabled
         self.dry_run = dry_run
         self.user = name_user
         self.nlp_model_name = nlp_model_name
+        self.stt_type = stt_type
         super(HRI, self).__init__()
         self.start() # Starts robotic controller
 

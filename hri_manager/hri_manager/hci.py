@@ -3,6 +3,7 @@ from pathlib import Path
 from natural_language_processing.text_to_speech.kokoro_model import Chatterbox
 from natural_language_processing.speech_to_text.audio_recorder import AudioRecorder
 from natural_language_processing.speech_to_text.whisperx_model import SpeechToTextModel
+from natural_language_processing.speech_to_text.whisper_probabilistic_model import SpeechToTextModel as ProbabilisticSpeechToTextModel
 from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
 from gesture_sentence_maker.gesture_sentence_getter import GestureSentenceGetter
 
@@ -27,15 +28,23 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
                  name_user = None,
                  nlp_model_name = None,
                  tts_enabled = None,
+                 stt_type: str = "deterministic",
                  ):
         if name_user is not None: self.user = name_user
         if nlp_model_name is not None: self.nlp_model_name = nlp_model_name
         if tts_enabled is not None: self.tts_enabled = tts_enabled
+        if stt_type is not None: self.stt_type = stt_type
         super(HCI, self).__init__()
 
         assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
         print(f"1/3 Init STT: VRAM memory left: {get_gpu_memory()}", flush=True)
-        self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
+
+        # (3/3) NOT SURE ABOUT IMPLEMENTATION: SELECTION OF MERGE TYPE
+        if self.stt_type == "deterministic":
+            self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
+        elif self.stt_type == "probabilistic":
+            self.stt = ProbabilisticSpeechToTextModel(device="cuda")
+
         if self.tts_enabled:
             print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
             self.tts = Chatterbox(device="cuda") # you might want to offload to cpu
@@ -53,7 +62,7 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         self.rec.start_recording()
         input("Press enter to finish")
         file, _ = self.rec.stop_recording()
-        return self.stt.forward(file)
+        return self.stt(file)
 
     def speak(self, text):
         if self.tts_enabled:
