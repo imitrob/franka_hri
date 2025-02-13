@@ -5,9 +5,8 @@ Command your robot with voice commands and hand gestures. Steps:
 1. Teach new robotic actions: skills (as kinesthetic demonstrations)
 2. Create user profile: Which skills to execute when certain action word or gesture is observed
 3. Execute skills!
+4. (Optional) Use LLM Merger to merge voice commands and hand gestures into single narrative
 
-LLM Merger:
-1. 
 ## Install 
 
 ```
@@ -87,6 +86,15 @@ Play with [sentence_processor.py:ROLE_DESCRIPTION](natural_language_processing/n
 Usage:
 1. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=casper`
 2. `ros2 llm_merger llm_merger --name_user casper`
+
+Parameters:
+1. Set of Gestures: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
+  - You get set of gesture poses and gesture swipes
+  - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length`
+  - 
+2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template.
+3. 
+
 
 ## User study narration
 
