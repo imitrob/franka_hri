@@ -64,15 +64,15 @@ class HRIMerger():
             time.sleep(RECEIVE_CHECK_INTERVAL)
             if len(self.record_queue) > 0:
                 record_stamped_file_name = self.record_queue.pop()
-                voice_stamped = self.hri.stt.stamped_transcribe(record_stamped_file_name)
+                voicecommand = self.hri.stt.stamped_transcribe(record_stamped_file_name)
 
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
                 if len(self.gestures_queue) > 0:
-                    gesture_stamped = self.gestures_queue.pop()
-                    self.forward(voice_stamped, gesture_stamped, self.role_description)
+                    hricommand = self.gestures_queue.pop()
+                    self.merge(voicecommand, hricommand, self.role_description)
                 else:
-                    self.forward(voice_stamped, [], self.role_description)
+                    self.merge(voicecommand, [], self.role_description)
 
                 self.record_queue = []
                 self.gestures_queue = []
@@ -88,9 +88,17 @@ class HRIMerger():
         hricommand = HriCommand.from_ros(msg)
         self.gestures_queue.append(hricommand)
 
+    
     def merge(self, hricommand, voicecommand, *args, **kwargs):
         gesture_stamped = hricommand.get_target_timestamped_list()
         voice_stamped = voicecommand
+        predicted = self._merge(gesture_stamped, voice_stamped, *args, **kwargs)
+
+        target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
+        self.hri.play_skill(target_action, target_object)
+
+
+    def _merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
         
         print("Voice stamped: ", voice_stamped, flush=True)
         print("Gesture stamped: ", gesture_stamped, flush=True)
@@ -114,10 +122,8 @@ class HRIMerger():
         
         predicted = self.hri.sentence_processor.predict(final_sentence, *args, **kwargs)
         print(f"Predicted sentence: {predicted}", flush=True)
+        return predicted
 
-
-        target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
-        self.hri.play_skill(target_action, target_object)
 
     def save(self, voice_stamped, gesture_stamped):
         i = 0
@@ -126,7 +132,12 @@ class HRIMerger():
         np.savez(f"{llm_merger.path}/saved_inputs/save_{i}", voice_stamped=np.array(voice_stamped), gesture_stamped=np.array(gesture_stamped))
 
 class ProbabilisticHRIMerger(HRIMerger):
-    def merge(self, hricommand, voicecommand, *args, **kwargs):
+        
+        
+
+
+    def _merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
+        # TODO:
         gesture_stamped = hricommand.get_target_timestamped_probabilistic()
         voice_stamped = voicecommand
         
@@ -134,6 +145,8 @@ class ProbabilisticHRIMerger(HRIMerger):
         print("Gesture stamped: ", gesture_stamped, flush=True)
         print_modalities(voice_stamped, gesture_stamped)
         self.save(voice_stamped, gesture_stamped)
+        
+        
         """ both gesture_stamped and voice_stamped in format:
         [ # time,  word  : probs, ...
             [0.0, {"pick": 1.0, "kick": 0.2}],
@@ -147,14 +160,17 @@ class ProbabilisticHRIMerger(HRIMerger):
         print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
         
         words = np.array(sorted_sentence)[:,1]
-        final_sentence = " ".join(words[words!=None])
+        final_sentence = str(words[words!={}])
         
         self.hri.speak(f"Merged sentence is: {final_sentence}")
         
+        # predicted = self.hri.sentence_processor.predict(final_sentence, *args, **kwargs)
+
         predicted = self.hri.sentence_processor.predict_with_probs(final_sentence, *args, **kwargs)
         print(f"Predicted sentence: {predicted}", flush=True)
         target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
         self.hri.play_skill(target_action, target_object)
+
 
 
 def main():
