@@ -1,5 +1,5 @@
 
-from llm_merger.llm_model import HRIMerger, ProbabilisticHRIMerger
+from llm_merger.llm_model import HRIMerger
 import rclpy
 import llm_merger
 import numpy as np
@@ -57,8 +57,8 @@ def test_just_probabilistic(
         target_object = "cup",
     ):
     rclpy.init()
-    merger = ProbabilisticHRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", role_version="v1")
-    results = merger._merge( 
+    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", role_version="v1")
+    results = merger.prob_merge( 
         voice_stamped,
         gesture_stamped, 
         role_description=role_description,

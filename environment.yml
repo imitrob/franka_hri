@@ -56,5 +56,5 @@ dependencies:
   - soundfile
   - playsound
   - panda-python
-  - faster-whisper=1.1.0 
-  - ctranslate2=3.24.0 
+  - faster-whisper==1.1.0 
+  - ctranslate2==3.24.0 

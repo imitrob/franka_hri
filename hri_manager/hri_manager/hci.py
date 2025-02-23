@@ -39,11 +39,11 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
         print(f"1/3 Init STT: VRAM memory left: {get_gpu_memory()}", flush=True)
 
-        # (3/3) NOT SURE ABOUT IMPLEMENTATION: SELECTION OF MERGE TYPE
         if self.stt_type == "deterministic":
             self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
         elif self.stt_type == "probabilistic":
             self.stt = ProbabilisticSpeechToTextModel(device="cuda")
+        else: raise Exception()
 
         if self.tts_enabled:
             print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)

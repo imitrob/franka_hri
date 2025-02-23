@@ -24,9 +24,10 @@ pip install pyannote.audio==3.3.2 --no-deps
 pip install -r <(pip show pyannote.audio | grep Requires | cut -d ' ' -f2- | tr ', ' '\n' | grep -v torchaudio)
 pip install whisperx --no-deps
 pip install librosa
+pip install fuzzywuzzy
 
 cd ..
-colcon build --symlink-install
+colcon build --symlink-install #--cmake-args -DPython3_FIND_VIRTUALENV=ONLY
 source install/setup.bash
 
 bash teleop_gesture_toolbox/gesture_detector/leap_motion_install.sh

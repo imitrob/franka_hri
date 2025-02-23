@@ -90,26 +90,27 @@ class HRIMerger():
 
     
     def merge(self, hricommand, voicecommand, *args, **kwargs):
-        gesture_stamped = hricommand.get_target_timestamped_list()
-        voice_stamped = voicecommand
-        predicted = self._merge(gesture_stamped, voice_stamped, *args, **kwargs)
+        if self.merge_approach == "deterministic":
+            gesture_stamped = hricommand.get_target_timestamped_list()
+            voice_stamped = voicecommand
+            predicted = self._merge(gesture_stamped, voice_stamped, *args, **kwargs)
+        elif self.merge_approach == "probabilistic":
+            gesture_stamped = hricommand.get_target_timestamped_probabilistic()
+            voice_stamped = voicecommand
+            predicted = self.prob_merge(gesture_stamped, voice_stamped, *args, **kwargs)
 
         target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
         self.hri.play_skill(target_action, target_object)
 
-
     def _merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
-        
+        """ gesture_stamped: [:,0] - timestamps, [:,1] - words 
+            voice_stamped:   [:,0] - timestamps, [:,1] - words
+        """      
         print("Voice stamped: ", voice_stamped, flush=True)
         print("Gesture stamped: ", gesture_stamped, flush=True)
         print_modalities(voice_stamped, gesture_stamped)
         self.save(voice_stamped, gesture_stamped)
         
-        
-        """ gesture_stamped: [:,0] - timestamps, [:,1] - words 
-            voice_stamped:   [:,0] - timestamps, [:,1] - words
-        """      
-
         gesture_stamped.extend(voice_stamped)
         sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
 
@@ -123,37 +124,19 @@ class HRIMerger():
         predicted = self.hri.sentence_processor.predict(final_sentence, *args, **kwargs)
         print(f"Predicted sentence: {predicted}", flush=True)
         return predicted
-
-
-    def save(self, voice_stamped, gesture_stamped):
-        i = 0
-        while Path(f"{llm_merger.path}/saved_inputs/save_{i}.npz").is_file():
-            i+=1
-        np.savez(f"{llm_merger.path}/saved_inputs/save_{i}", voice_stamped=np.array(voice_stamped), gesture_stamped=np.array(gesture_stamped))
-
-class ProbabilisticHRIMerger(HRIMerger):
-        
-        
-
-
-    def _merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
-        # TODO:
-        gesture_stamped = hricommand.get_target_timestamped_probabilistic()
-        voice_stamped = voicecommand
-        
-        print("Voice stamped: ", voice_stamped, flush=True)
-        print("Gesture stamped: ", gesture_stamped, flush=True)
-        print_modalities(voice_stamped, gesture_stamped)
-        self.save(voice_stamped, gesture_stamped)
-        
-        
+    
+    def prob_merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
         """ both gesture_stamped and voice_stamped in format:
         [ # time,  word  : probs, ...
             [0.0, {"pick": 1.0, "kick": 0.2}],
             [0.1, {"up": 0.96, "lap": 0.1}],
         ]
         """
-
+        print("Voice stamped: ", voice_stamped, flush=True)
+        print("Gesture stamped: ", gesture_stamped, flush=True)
+        print_modalities(voice_stamped, gesture_stamped)
+        self.save(voice_stamped, gesture_stamped)
+        
         gesture_stamped.extend(voice_stamped)
         sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
 
@@ -164,12 +147,17 @@ class ProbabilisticHRIMerger(HRIMerger):
         
         self.hri.speak(f"Merged sentence is: {final_sentence}")
         
-        # predicted = self.hri.sentence_processor.predict(final_sentence, *args, **kwargs)
-
         predicted = self.hri.sentence_processor.predict_with_probs(final_sentence, *args, **kwargs)
         print(f"Predicted sentence: {predicted}", flush=True)
-        target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
-        self.hri.play_skill(target_action, target_object)
+        return predicted
+
+    def save(self, voice_stamped, gesture_stamped):
+        i = 0
+        while Path(f"{llm_merger.path}/saved_inputs/save_{i}.npz").is_file():
+            i+=1
+        np.savez(f"{llm_merger.path}/saved_inputs/save_{i}", voice_stamped=np.array(voice_stamped), gesture_stamped=np.array(gesture_stamped))
+
+
 
 
 
@@ -188,11 +176,7 @@ def main():
 
     rclpy.init()
 
-    # (2/3) NOT SURE ABOUT IMPLEMENTATION: SELECTION OF MERGE TYPE
-    if args.merge_approach == "deterministic":
-        merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, role_version=args.role_version, dry_run=args.dry_run, merge_approach=args.merge_approach)
-    elif args.merge_approach == "probabilistic":
-        merger = ProbabilisticHRIMerger(name_user=args.name_user, model_name=args.name_model, role_version=args.role_version, dry_run=args.dry_run, merge_approach=args.merge_approach)
+    merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, role_version=args.role_version, dry_run=args.dry_run, merge_approach=args.merge_approach)
     print(merger.hri.print_user_preferences())
     merger.spin()
 
