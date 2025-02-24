@@ -9,12 +9,10 @@ from llm_merger.role_setup import get_role_description
 from llm_merger.generate_dataset import EnhancedDatasetGenerator, CONFIG
 
 """ When I install this package, I always try to run this function """
-def test_just_to_see_if_works(
-        role_description=get_role_description(A=["Pick", "Push", "Pour"], O=["Cup", "Drawer", "Bowl"]),
-        max_new_tokens = 50,
-        temperature = 0.0,
-        top_p = 1.0,
-        repetition_penalty = 1.1,
+def test_just_to_see_if_works():
+    rclpy.init()
+    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced")
+    results = merger.merge( 
         voice_stamped = [
             [0.0, "Pick"],
             [0.1, "Green"],
@@ -23,53 +21,36 @@ def test_just_to_see_if_works(
         gesture_stamped = [
             [0.4, ", pointing at a Cup, "],
         ],
-        target_action = "pick",
-        target_object = "cup",
-    ):
-    rclpy.init()
-    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", role_version="v1")
-    results = merger._merge( 
-        voice_stamped,
-        gesture_stamped, 
-        role_description=role_description,
-        max_new_tokens = max_new_tokens,
-        temperature = temperature,
-        top_p = top_p,
-        repetition_penalty = repetition_penalty,
-    )
-    assert results["target_action"].lower() == target_action and results["target_object"].lower() == target_object
-
-def test_just_probabilistic(
         role_description=get_role_description(A=["Pick", "Push", "Pour"], O=["Cup", "Drawer", "Bowl"]),
         max_new_tokens = 50,
         temperature = 0.0,
         top_p = 1.0,
         repetition_penalty = 1.1,
+    )
+    assert results["target_action"].lower() == "pick" and results["target_object"].lower() == "cup"
+
+def test_just_probabilistic():
+    rclpy.init()
+    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", merge_approach="probabilistic")
+    results = merger.merge( 
         voice_stamped = [
-            [0.0, {"Pick": 0.9, "kick": 0.1}],
-            [0.1, {"Green": 0.9, "in": 0.1}],
-            [0.4, {"Cup": 0.9, "Cap": 0.1}],
+            [0.0, {"pick": 0.5, "kick": 0.5}],
+            [0.1, {"green": 0.9, "in": 0.1}],
+            [0.4, {"cup": 0.9, "cap": 0.1}],
         ],
         gesture_stamped = [
-            [0.4, {"cup": 0.9, "drawer": 0.1}],
-        ],
-        target_action = "pick",
-        target_object = "cup",
-    ):
-    rclpy.init()
-    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", role_version="v1")
-    results = merger.prob_merge( 
-        voice_stamped,
-        gesture_stamped, 
-        role_description=role_description,
-        max_new_tokens = max_new_tokens,
-        temperature = temperature,
-        top_p = top_p,
-        repetition_penalty = repetition_penalty,
+            [0.4, {"cup": 0.9, "container": 0.1}],
+        ], 
+        role_description=get_role_description(
+            A=["pick", "push", "pour"], 
+            O=["cup", "cabinet", "bowl"]
+        ),
+        max_new_tokens = 50,
+        temperature = 0.0,
+        top_p = 1.0,
+        repetition_penalty = 1.1,
     )
-    assert results["target_action"].lower() == target_action and results["target_object"].lower() == target_object
-
-
+    assert results["target_action"].lower() == "pick" and results["target_object"].lower() == "cup"
 
 def test_on_generated_data():
     rclpy.init()
@@ -92,7 +73,7 @@ def test_on_generated_data():
 
 
 
-    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", role_version="v1")
+    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced")
     
     voice_stamped = [
         [0.0, "Pick"],
@@ -102,7 +83,7 @@ def test_on_generated_data():
     gesture_stamped = [
         [0.4, ", pointing at a Cup, "],
     ]
-    results = merger._merge( 
+    results = merger.merge( 
         voice_stamped,
         gesture_stamped, 
         role_description=role_description,
@@ -141,6 +122,6 @@ def test_on_saved_data(
         i+=1
 
 if __name__ == "__main__":
-    # test_just_to_see_if_works()
+    test_just_to_see_if_works()
     test_just_probabilistic()
     # test_on_generated_data()

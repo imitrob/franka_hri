@@ -5,6 +5,7 @@ from natural_language_processing.speech_to_text.audio_recorder import AudioRecor
 from natural_language_processing.speech_to_text.whisperx_model import SpeechToTextModel
 from natural_language_processing.speech_to_text.whisper_probabilistic_model import SpeechToTextModel as ProbabilisticSpeechToTextModel
 from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
+from llm_merger.models.llm import ProbabilisticSentenceProcessor
 from gesture_sentence_maker.gesture_sentence_getter import GestureSentenceGetter
 
 import subprocess
@@ -50,7 +51,11 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
             self.tts = Chatterbox(device="cuda") # you might want to offload to cpu
         self.rec = AudioRecorder()
         print(f"3/3 Init LM: VRAM memory left: {get_gpu_memory()}", flush=True)
-        self.sentence_processor = SentenceProcessor(model_name=self.nlp_model_name)
+        
+        if self.stt_type == "deterministic":
+            self.sentence_processor = SentenceProcessor(model_name=self.nlp_model_name)
+        elif self.stt_type == "probabilistic":
+            self.sentence_processor = ProbabilisticSentenceProcessor(model_name=self.nlp_model_name)
         print(f"{cc.H}Initialization Done{cc.E}: VRAM memory left: {get_gpu_memory()}", flush=True)
 
         self.gestures = GestureSentenceGetter(self)

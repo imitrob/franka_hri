@@ -78,7 +78,7 @@ See saved skills in `trajectory_data/trajectories` folder.
 3. Test: `lfdemv; ros2 run hri_manager action_executor_dry_run --name_user casper` Run: `lfdemv; ros2 run hri_manager action_executor --name_user casper` 
 
 Tuning:
-Play with [sentence_processor.py:ROLE_DESCRIPTION](natural_language_processing/natural_language_processing/sentence_instruct_transformer/sentence_processor.py)
+Play with [llm.py:ROLE_DESCRIPTION](llm_merger/models/llm.py)
 
 
 # TRANSFORMERGE
