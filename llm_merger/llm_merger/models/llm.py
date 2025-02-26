@@ -1,7 +1,39 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
-class ProbabilisticSentenceProcessor():
+
+import Levenshtein
+
+def find_closest_word(input_word, tokenizer):
+    """
+    Finds the closest single-token word in the model's vocabulary based on Levenshtein distance.
+
+    Args:
+        input_word (str): The input word to find a match for.
+        tokenizer: The tokenizer of the language model.
+
+    Returns:
+        str: The closest single-token word in the vocabulary.
+    """
+    # Get the model's vocabulary
+    vocab = tokenizer.get_vocab()
+    
+    # Filter for single-token words
+    single_token_words = [word for word in vocab.keys() if len(tokenizer.tokenize(word)) == 1]
+    
+    # Find the word with the smallest Levenshtein distance
+    closest_word = None
+    min_distance = float('inf')
+    
+    for word in single_token_words:
+        distance = Levenshtein.distance(input_word, word)
+        if distance < min_distance:
+            min_distance = distance
+            closest_word = word
+    
+    return closest_word
+
+class SentenceProcessor():
     def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Reinforced"):
         """Good models for instruct:
             model_name = Qwen/Qwen2.5-0.5B-Instruct (1GB VRAM)
@@ -17,6 +49,9 @@ class ProbabilisticSentenceProcessor():
             device_map="auto",
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    def delete(self):
+        del self.model
 
     def predict(self, 
                 prompt: str, # input sentence is string
@@ -52,7 +87,7 @@ class ProbabilisticSentenceProcessor():
     def raw_predict(self, 
                     prompt: str, 
                     role_description: str,
-                    max_new_tokens: int = 50, 
+                    max_new_tokens: int = 1000, 
                     temperature: float = 0.0, 
                     top_p: float = 1.0,
                     repetition_penalty: float = 1.1,
@@ -87,14 +122,13 @@ class ProbabilisticSentenceProcessor():
             generated_ids[0][model_inputs.input_ids.shape[-1]:],
             skip_special_tokens=True
         )
-    
-        # Post-process to ensure format
-        return response.split("\n")[0].strip()
+
+        return response
 
     def probabilistic_predict(self, 
             probabilistic_inputs, 
             role_description: str,
-            max_new_tokens: int = 50, 
+            max_new_tokens: int = 1000, 
             temperature: float = 0.0, 
             top_p: float = 1.0,
             repetition_penalty: float = 1.1,
@@ -120,15 +154,15 @@ class ProbabilisticSentenceProcessor():
             for token_str, weight in token_candidates.items():
                 # Tokenize the candidate token (may produce multiple subword tokens)
                 token_ids = self.tokenizer(token_str, add_special_tokens=False)["input_ids"]
-                print(f"Token: '{token_str}', Token IDs: {token_ids}")
-                
+                if len(token_ids) > 1:
+                    print(f"Cosider changing the {token_str} to alternative: {find_closest_word(token_str, self.tokenizer)}")
+
                 # Compute the weighted average of embeddings for all subword tokens
                 token_embs = []
                 for token_id in token_ids:
                     token_tensor = torch.tensor(token_id).to(self.model.device)
                     token_emb = embedding_layer(token_tensor)  # Shape: [1, emb_dim]
                     token_embs.append(token_emb)
-                    print(f"Token ID: {token_id}, Embedding Shape: {token_emb.shape}")
                 
                 # Average the embeddings of all subword tokens
                 avg_token_emb = torch.mean(torch.stack(token_embs, dim=0), dim=0)  # Shape: [1, emb_dim]
@@ -209,25 +243,7 @@ class ProbabilisticSentenceProcessor():
         
         generated_sequence = generated_ids[0]
         response = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
-        print("response", response)
-        response = response.split("\n")[0].strip()
-
-        response = response.replace(", ", ",")
-        response = response.replace("'", "")
-        response = response.replace("a can", "can")
-        response_list = response.split(",")
-        r = {}
-        k_prev = ""
-        for i in range(len(response_list)):
-            s = self.remove_article(response_list[i]) # get rid of a, the..
-            
-            k, v = self.sort_types(s) # get rid of "action: ..."
-            if k_prev == k: # order from model is: object, object2 right after each other; color, color2
-                r[k+"2"] = v
-            else:
-                r[k] = v
-            k_prev = k
-        return r
+        return response
 
 
     def remove_article(self, str):

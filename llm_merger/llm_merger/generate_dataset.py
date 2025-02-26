@@ -4,27 +4,30 @@ from typing import Dict, List, Tuple
 import numpy as np
 from fuzzywuzzy import fuzz  # Requires 'fuzzywuzzy' library: pip install fuzzywuzzy
 
+
 # ================= Enhanced Configuration =================
 CONFIG = {
-    "actions": ["pick", "place", "pour", "push", "point", "open", "close", "stop"],
-    "adjectives": ["quickly", "slowly", "carefully", "slightly", "forcefully"],
+    "actions": ["stop", "release", "home", "pick", "push", "pass", "place", "point", "open", "close", "pour", "put"],
+    "adjectives": ["quickly", "slowly", "carefully", "lightly", "force"],
     "prepositions": ["to", "into", "onto", "from"],
-    "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],
+    "object_types": ["cube", "bow", "cup", "container", "water"],
+    # "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],
     "properties": {
         "size": ["small", "medium", "large"],
         "color": ["red", "green", "blue", "yellow"],
         "state": ["open", "closed", "half-full"]
     },
     "noise": {
-        "phonetic_confusion": 0.2,  # Probability of phonetic-based errors
-        "filler_words": 0.3,        # Probability of adding filler words
-        "alignment_noise": 0.4,     # 0=perfect alignment, 1=high misalignment
-        "incomplete_sentence": 0.1  # Probability of truncated commands
+        "phonetic_confusion": 0.0, #0.2,  # Probability of phonetic-based errors
+        "filler_words": 0.0, #0.3,        # Probability of adding filler words
+        "alignment_noise": 0.0, #0.4,     # 0=perfect alignment, 1=high misalignment
+        "incomplete_sentence": 0.0, #0.1  # Probability of truncated commands
     },
-    "max_instances": 3,
+    "max_instances": 1, #3,
     "filler_words": ["um", "ah", "like", "you know", "well", "so"]
 }
 PHONETIC_SIMILARITY_THR = 70
+OBJECT_HAS_IDS = False # max_instantes should be 1
 # ===========================================================
 
 @dataclass
@@ -58,7 +61,11 @@ class EnhancedDatasetGenerator:
         scene = {}
         for obj_type in self.cfg['object_types']:
             for i in range(random.randint(1, self.cfg['max_instances'])):
-                obj_id = f"{obj_type}{i+1}"
+                if OBJECT_HAS_IDS:
+                    obj_id = f"{obj_type}{i+1}"
+                else:
+                    obj_id = f"{obj_type}"
+                print("obj_id", obj_id)
                 properties = {
                     "size": random.choice(self.cfg['properties']['size']),
                     "color": random.choice(self.cfg['properties']['color']),
@@ -201,6 +208,7 @@ class EnhancedDatasetGenerator:
             voice,
             gesture,
             true_sentence,
+            CONFIG
         )
 
 class cc:
@@ -220,6 +228,7 @@ class Sample():
     voice: str
     gesture: Dict[str, str]
     true_sentence: Dict[str, str]
+    CONFIG: dict
 
     def __str__(self):
         s = ""
@@ -233,6 +242,40 @@ class Sample():
             s += f"{ts}: {gword}\n"
         s += f"True Sentence: {self.true_sentence}\n\n"
         return s
+    
+    def export(self, merge_approach):
+        if merge_approach == "deterministic":
+            return self.to_deterministic()
+        elif merge_approach == "probabilistic":
+            return self.to_probabilistic()
+        else: raise Exception()
+
+    def to_probabilistic(self):
+        voice_stamped = [i for i in self.voice.items()]
+        gesture_stamped = [i for i in self.gesture.items()]
+        scene_list = [i for i in self.scene.items()]
+        scene = ""
+        for o in scene_list:
+            scene += " is ".join(o) + ". "
+        object_names = list(self.scene.keys())  
+        return voice_stamped, gesture_stamped, scene, object_names, self.true_sentence, self.CONFIG
+        
+    def to_deterministic(self):
+        voice_stamped = []
+        for t, p in self.voice.items():
+            voice_stamped.append([t, max(p, key=p.get)])
+        gesture_stamped = []
+        for t, p in self.gesture.items():
+            gesture_stamped.append([t, max(p, key=p.get)])
+        scene_list = [i for i in self.scene.items()]
+        scene = ""
+        for o in scene_list:
+            scene += " is ".join(o) + ". "
+        object_names = list(self.scene.keys())  
+        
+        return voice_stamped, gesture_stamped, scene, object_names, self.true_sentence, self.CONFIG
+        
+
 # ================= Usage Example =================
 if __name__ == "__main__":
     generator = EnhancedDatasetGenerator()

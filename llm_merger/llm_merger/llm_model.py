@@ -10,7 +10,7 @@ from hri_manager.HriCommand import HriCommand
 
 import rclpy, time, json
 from naive_merger.utils import cc
-from llm_merger.role_setup import get_role_description
+from llm_merger.skill_command import SkillCommand
 
 import llm_merger
 import argparse
@@ -127,18 +127,21 @@ class HRIMerger():
         if self.merge_approach == "deterministic":
             final_sentence = " ".join(words[words!=None])
             self.hri.speak(f"Merged sentence is: {final_sentence}")
-        
-            predicted = self.hri.sentence_processor.predict(final_sentence, *args, **kwargs)
-        
+            predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
+            # Run second round on object similarity
+            # predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description, *args, **kwargs)
         elif self.merge_approach == "probabilistic":
-            final_sentence = words[words!={}]
+            final_sentence = list(words[words!={}])
+            for n,word in enumerate(final_sentence):
+                if n%2==0:
+                    final_sentence.insert(n, {" ": 1.0})
             self.hri.speak(f"Merged sentence is: {final_sentence}")
-
             predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, *args, **kwargs)
+        print(f"{cc.W}LM says: {predicted} {cc.E}")
+        return SkillCommand.from_predicted(predicted)
 
-        print(f"Predicted sentence: {predicted}", flush=True)
-        target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
-        return {"target_action": target_action, "target_object": target_object}
+        # target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
+
 
     def save(self, voice_stamped, gesture_stamped):
         i = 0

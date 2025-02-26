@@ -1,7 +1,6 @@
 
 import yaml
 import hri_manager
-from llm_merger.role_setup import get_role_description
 
 class UserPreferenceGetter():
     def __init__(self):

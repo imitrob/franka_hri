@@ -4,8 +4,8 @@ from natural_language_processing.text_to_speech.kokoro_model import Chatterbox
 from natural_language_processing.speech_to_text.audio_recorder import AudioRecorder
 from natural_language_processing.speech_to_text.whisperx_model import SpeechToTextModel
 from natural_language_processing.speech_to_text.whisper_probabilistic_model import SpeechToTextModel as ProbabilisticSpeechToTextModel
-from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
-from llm_merger.models.llm import ProbabilisticSentenceProcessor
+# from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
+from llm_merger.models.llm import SentenceProcessor
 from gesture_sentence_maker.gesture_sentence_getter import GestureSentenceGetter
 
 import subprocess
@@ -24,6 +24,13 @@ def get_gpu_memory():
     memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
     return memory_free_values
 
+
+import torch, gc, time
+
+def clean_vram():
+    gc.collect()
+    torch.cuda.empty_cache()
+
 class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
     def __init__(self,
                  name_user = None,
@@ -39,6 +46,8 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
 
         assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
         print(f"1/3 Init STT: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
         if self.stt_type == "deterministic":
             self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
@@ -48,21 +57,39 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
 
         if self.tts_enabled:
             print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
+            print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+            print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
             self.tts = Chatterbox(device="cuda") # you might want to offload to cpu
         self.rec = AudioRecorder()
         print(f"3/3 Init LM: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
         
-        if self.stt_type == "deterministic":
-            self.sentence_processor = SentenceProcessor(model_name=self.nlp_model_name)
-        elif self.stt_type == "probabilistic":
-            self.sentence_processor = ProbabilisticSentenceProcessor(model_name=self.nlp_model_name)
+        self.sentence_processor = SentenceProcessor(model_name=self.nlp_model_name)
         print(f"{cc.H}Initialization Done{cc.E}: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
 
         self.gestures = GestureSentenceGetter(self)
 
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
         self.voicerecord_pub = self.create_publisher(String, "/recorded_file", qos)
-    
+
+    def delete(self):
+        if self.tts_enabled:
+            self.tts.delete()
+        self.stt.delete()
+        self.sentence_processor.delete()
+        time.sleep(1.0)
+        clean_vram()
+        print(f"{cc.H}Cleaning done{cc.E}: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
+
     def listen_user(self):
         self.rec.start_recording()
         input("Press enter to finish")
