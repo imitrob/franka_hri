@@ -243,10 +243,10 @@ class Sample():
         s += f"True Sentence: {self.true_sentence}\n\n"
         return s
     
-    def export(self, merge_approach):
-        if merge_approach == "deterministic":
+    def export(self, interpret_format):
+        if interpret_format == "deterministic":
             return self.to_deterministic()
-        elif merge_approach == "probabilistic":
+        elif interpret_format == "probabilistic":
             return self.to_probabilistic()
         else: raise Exception()
 

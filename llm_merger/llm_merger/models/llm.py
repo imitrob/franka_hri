@@ -91,6 +91,7 @@ class SentenceProcessor():
                     temperature: float = 0.0, 
                     top_p: float = 1.0,
                     repetition_penalty: float = 1.1,
+                    *args, **kwargs,
                     ) -> str:
         """ Returns string output from LM. """
         messages = [
@@ -132,6 +133,7 @@ class SentenceProcessor():
             temperature: float = 0.0, 
             top_p: float = 1.0,
             repetition_penalty: float = 1.1,
+            *args, **kwargs,
             ):
         # Step 1: Build the text prompt via chat template
         messages = [
