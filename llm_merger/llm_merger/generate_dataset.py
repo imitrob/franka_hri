@@ -196,7 +196,7 @@ class EnhancedDatasetGenerator:
         # Generate inputs with alignment noise
         voice = self.generate_voice_command(true_sentence)
         gesture = self.generate_gesture_input(
-            target_obj.obj_id if action != "stop" else "",
+            target_obj.obj_id, # if action != "stop" else "",
             scene,
             list(voice.keys())
         )

@@ -118,8 +118,10 @@ class SkillCommand():
             return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip())
         elif r['target_action'] in DOUBLEOBJ_COMMAND:
             return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip())
-        else: raise Exception("No known action", r['target_action'], " not in ", ALL_COMMAND)
-        
+        else: 
+            print("No known action", r['target_action'], " not in ", ALL_COMMAND)
+            return cls("")
+
     def is_valid(self):
         not_valid = ""
         # Check format
@@ -185,8 +187,16 @@ def remove_types(str):
         str = str.split("action: ")[-1]
         str = remove_relation(str)
         return "target_action", str
+    if "action:" in str:
+        str = str.split("action:")[-1]
+        str = remove_relation(str)
+        return "target_action", str
     if "object: " in str:
         str = str.split("object: ")[-1]
+        str = remove_color(str)
+        return "target_object", str
+    if "object:" in str:
+        str = str.split("object:")[-1]
         str = remove_color(str)
         return "target_object", str
     if "object1: " in str:
@@ -200,11 +210,20 @@ def remove_types(str):
     if "color: " in str:
         str = str.split("color: ")[-1]
         return "target_object_color", str
+    if "color:" in str:
+        str = str.split("color:")[-1]
+        return "target_object_color", str
     if "relationship: " in str:
         str = str.split("relationship: ")[-1]
         return "relationship", str
+    if "relationship:" in str:
+        str = str.split("relationship:")[-1]
+        return "relationship", str
     if "property: " in str:
         str = str.split("property: ")[-1]
+        return "property", str
+    if "property:" in str:
+        str = str.split("property:")[-1]
         return "property", str
 
     raise Exception(f"Either 'action:', 'object:', 'color: ' or 'relationship': in string {str}")

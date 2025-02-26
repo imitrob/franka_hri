@@ -10,7 +10,7 @@ def plot_model_performance(model_accuracies, xlabel, filename):
                                  and values are lists of accuracies (list of floats)
                                  for noise levels from 0.0 to 1.0.
     """
-    noise_levels = np.arange(0.0, 1.1, 0.1)  # Noise levels from 0.0 to 1.0
+    noise_levels = np.arange(0.0, 0.2, 0.1)  # Noise levels from 0.0 to 1.0
 
     plt.figure(figsize=(6, 4))
     
@@ -33,5 +33,13 @@ model_accuracies = {
     "Model C": [1.0, 0.97, 0.92, 0.87, 0.8, 0.65, 0.55, 0.42, 0.3, 0.18, 0.1],
 }
 
+noise_data = np.load(f"/home/imitlearn/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_samples/alignment_noise_data.npy")
+
+model_accuracies = {"Model A": noise_data}
 plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{align}$ [-]", "noise_plot_01.pdf")
-plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{phon}$ [-]", "noise_plot_02.pdf")
+# plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{phon}$ [-]", "noise_plot_02.pdf")
+
+
+
+
+

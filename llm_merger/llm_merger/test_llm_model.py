@@ -9,7 +9,7 @@ from llm_merger.role_setup import get_role_description
 from llm_merger.generate_dataset import EnhancedDatasetGenerator, CONFIG
 
 from llm_merger.skill_command import ALL_COMMAND, OBJECT_TYPES, SkillCommand
-
+import json, copy
 def test_skill_commands():
     # these should be valid
     assert SkillCommand("stop").is_valid()
@@ -192,7 +192,7 @@ def test_on_scenarios():
 
 def test_alignment_noise(
         samples = 10,
-        noise_levels = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],
+        noise_levels = [0.0,0.1,0.2],
         ):
     """ Do not automate this, I think this is good like it is.
         1. Choose the Merger from commented options,
@@ -248,14 +248,33 @@ def test_alignment_noise(
                 successful = False
             
             # here save
-            voice_stamped, gesture_stamped, scene, object_names, true_sentence, CONFIG, role_description, max_new_tokens, temperature, top_p, repetition_penalty, successful
+            data = {
+                "voice_stamped": voice_stamped,
+                "gesture_stamped": gesture_stamped,
+                "scene": scene, 
+                "object_names": object_names, 
+                "true_sentence": true_sentence, 
+                "CONFIG": CONFIG, 
+                "role_description": 
+                role_description, 
+                "max_new_tokens": max_new_tokens, 
+                "temperature": temperature, 
+                "top_p": top_p, 
+                "repetition_penalty": 
+                repetition_penalty, 
+                "successful": successful,
+            }
+            i = 0
+            while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
+                i+=1
+            with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
+                json.dump(data, file, indent=4)
 
         accuracy = float(acc_sum) / samples
         result_accuracy.append(accuracy)
+
     
-    np.save(f"{llm_merger.path}/saved_results/alignment_noise_data", result_accuracy)
-    np.save(f"{llm_merger.path}/saved_results/alignment_noise_CONFIG", CONFIG)
-    np.save(f"{llm_merger.path}/saved_results/alignment_noise_CONFIG", CONFIG)
+    np.save(f"{llm_merger.path}/saved_samples/alignment_noise_data", result_accuracy)
 
     
 
@@ -296,4 +315,4 @@ if __name__ == "__main__":
     # test_just_probabilistic()
     # test_lm()
     # test_unsuccessful()
-    test_on_generated_data()
+    test_alignment_noise()
