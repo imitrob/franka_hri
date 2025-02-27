@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 def plot_model_performance(model_accuracies, xlabel, filename):
     """
@@ -10,34 +11,26 @@ def plot_model_performance(model_accuracies, xlabel, filename):
                                  and values are lists of accuracies (list of floats)
                                  for noise levels from 0.0 to 1.0.
     """
-    noise_levels = np.arange(0.0, 0.2, 0.1)  # Noise levels from 0.0 to 1.0
-
     plt.figure(figsize=(6, 4))
-    
+
     for model_name, accuracies in model_accuracies.items():
-        plt.plot(noise_levels, 100*np.array(accuracies), marker='o', label=model_name, linestyle='-')
+        plt.plot(accuracies[0], 100*np.array(accuracies[1]), marker='o', label=model_name, linestyle='-')
 
     plt.xlabel(xlabel)
     plt.ylabel("Accuracy [%]")
-    plt.xticks(noise_levels)
+    plt.xticks(accuracies[0])
     plt.ylim(0, 105)  # Assuming accuracy is between 0 and 1
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.legend()
     
     plt.savefig(filename)
 
-# Example usage:
-model_accuracies = {
-    "Model A": [1.0, 0.95, 0.9, 0.85, 0.75, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
-    "Model B": [1.0, 0.93, 0.88, 0.8, 0.7, 0.55, 0.45, 0.35, 0.25, 0.15, 0.05],
-    "Model C": [1.0, 0.97, 0.92, 0.87, 0.8, 0.65, 0.55, 0.42, 0.3, 0.18, 0.1],
-}
-
-noise_data = np.load(f"/home/imitlearn/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_samples/alignment_noise_data.npy")
-
-model_accuracies = {"Model A": noise_data}
-plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{align}$ [-]", "noise_plot_01.pdf")
-# plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{phon}$ [-]", "noise_plot_02.pdf")
+model_accuracies = {}
+for filename in Path("/home/imitlearn/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_results").glob("*.npy"):
+    noise_data = np.load(filename)
+    model_accuracies[str(filename).split("/")[-1]] = noise_data
+    
+plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{align}$ [-]", "/home/imitlearn/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_results/noise_results.pdf")
 
 
 

@@ -1,37 +1,52 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import numpy as np
+from transformers import AutoTokenizer, AutoModel
 
-
-import Levenshtein
-
-def find_closest_word(input_word, tokenizer):
-    """
-    Finds the closest single-token word in the model's vocabulary based on Levenshtein distance.
-
-    Args:
-        input_word (str): The input word to find a match for.
-        tokenizer: The tokenizer of the language model.
-
-    Returns:
-        str: The closest single-token word in the vocabulary.
-    """
-    # Get the model's vocabulary
+def get_semantic_similar_word(input_word, tokenizer, model, top_k=5):
+    # Get vocabulary and filter single-token words
     vocab = tokenizer.get_vocab()
+    single_token_words = [word for word in vocab.keys() 
+                         if len(tokenizer.tokenize(word)) == 1]
+
+    # Precompute embeddings for all single-token words
+    device = model.device  # Use same device as model
+    embedding_layer = model.get_input_embeddings()
     
-    # Filter for single-token words
-    single_token_words = [word for word in vocab.keys() if len(tokenizer.tokenize(word)) == 1]
-    
-    # Find the word with the smallest Levenshtein distance
-    closest_word = None
-    min_distance = float('inf')
-    
+    # Store normalized embeddings
+    word_embeddings = {}
     for word in single_token_words:
-        distance = Levenshtein.distance(input_word, word)
-        if distance < min_distance:
-            min_distance = distance
-            closest_word = word
+        token_id = vocab[word]
+        with torch.no_grad():
+            embedding = embedding_layer(torch.tensor([token_id]).to(device))
+        word_embeddings[word] = embedding.cpu().numpy()[0]
     
-    return closest_word
+    # Normalize all embeddings
+    for word in word_embeddings:
+        word_embeddings[word] /= np.linalg.norm(word_embeddings[word])
+
+    # Get input word embedding (handle multi-token words)
+    input_ids = tokenizer.encode(input_word, add_special_tokens=False)
+    if not input_ids:
+        return None
+        
+    with torch.no_grad():
+        input_embeds = embedding_layer(torch.tensor(input_ids).to(device)).cpu().numpy()
+    
+    # Average multi-token embeddings and normalize
+    input_embedding = np.mean(input_embeds, axis=0)
+    input_embedding /= np.linalg.norm(input_embedding)
+
+    # Find closest embeddings
+    similarities = []
+    for word, emb in word_embeddings.items():
+        sim = np.dot(input_embedding, emb)
+        similarities.append((word, sim))
+
+    # Return top k matches
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    return [item[0] for item in similarities[:top_k]]
+
 
 class SentenceProcessor():
     def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Reinforced"):
@@ -47,6 +62,7 @@ class SentenceProcessor():
             model_name,
             torch_dtype=torch.float32,
             device_map="auto",
+            trust_remote_code=True,
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -157,7 +173,8 @@ class SentenceProcessor():
                 # Tokenize the candidate token (may produce multiple subword tokens)
                 token_ids = self.tokenizer(token_str, add_special_tokens=False)["input_ids"]
                 if len(token_ids) > 1:
-                    print(f"Cosider changing the {token_str} to alternative: {find_closest_word(token_str, self.tokenizer)}")
+                    print(f"Cosider changing the {token_str} to alternative: {get_semantic_similar_word(token_str, self.tokenizer, self.model)}")
+                    print("===============")
 
                 # Compute the weighted average of embeddings for all subword tokens
                 token_embs = []

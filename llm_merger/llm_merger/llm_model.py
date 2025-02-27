@@ -50,12 +50,15 @@ class HRIMerger():
                 nlp_model_name = model_name,
                 stt_type = self.interpret_format
             )
-
+        self.model_name = model_name
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
         self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, qos_profile=qos)
         self.hri.create_subscription(String, '/recorded_file', self.receive_voice_record, qos_profile=qos)
         self.record_queue = []
         self.gestures_queue = []
+
+    def name(self):
+        return self.model_name.split("/")[-1]
 
     def spin(self, role_description):
         while rclpy.ok():
@@ -159,6 +162,9 @@ class ArgmaxMerger():
                 ):
         pass
 
+    def name(self):
+        return "Argmax"
+
     def merge(self, gesture_stamped, voice_stamped, CONFIG, object_names, *args, **kwargs):
         a, o, p, o2, ap = "none", "none", "none", "none", "none"
         for word in gesture_stamped:
@@ -183,6 +189,9 @@ class ZeroShotMerger():
                 ):
         pass
 
+    def name(self):
+        return "ZeroShot"
+
     def merge(self, gesture_stamped, voice_stamped, CONFIG, object_names, *args, **kwargs):
         pass
 
@@ -194,6 +203,9 @@ class BeamSearchMerger():
                 interpret_format: str = None,
                 ):
         pass
+
+    def name(self):
+        return "BeamSearch"
 
     def merge(self, gesture_stamped, voice_stamped, CONFIG, object_names, *args, **kwargs):
         pass

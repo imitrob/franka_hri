@@ -10,6 +10,9 @@ from llm_merger.generate_dataset import EnhancedDatasetGenerator, CONFIG
 
 from llm_merger.skill_command import ALL_COMMAND, OBJECT_TYPES, SkillCommand
 import json, copy
+from llm_merger.generate_dataset import Sample
+from naive_merger.utils import cc
+
 def test_skill_commands():
     # these should be valid
     assert SkillCommand("stop").is_valid()
@@ -191,95 +194,101 @@ def test_on_scenarios():
     rclpy.shutdown()
 
 def test_alignment_noise(
-        samples = 10,
-        noise_levels = [0.0,0.1,0.2],
+        noise_levels = [0.0,0.2,0.4,0.6],
+        # noise_levels = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],
+        # dataset = "D1",
+        dataset_name = "D2",
         ):
     """ Do not automate this, I think this is good like it is.
         1. Choose the Merger from commented options,
-        2. Choose dataset randomly generated samples
-        3. Choose which noises from commented options noises (from 0 to 1)
-            - a) First experiment is vary alignment noise only
-            - b) Second experiment is vary all other noises
+        2. Choose dataset D1 or D2
     """
     rclpy.init()
-    generator = EnhancedDatasetGenerator()
+
+    # model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
+    # model_name="SultanR/SmolTulu-1.7b-Reinforced"
+    # model_name="SultanR/SmolTulu-1.7b-Instruct"
+    model_name="ibm-granite/granite-3.1-2b-instruct"
 
     # merger = ArgmaxMerger()
     # merger = ZeroShotMerger()
     # merger = BeamSearchMerger()
+
+    # merger = HRIMerger(name_user="casper", model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", interpret_format="deterministic")
+    # merger = HRIMerger(name_user="casper", model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", interpret_format="probabilistic")
     interpret_format="deterministic"
-    # interpret_format="probabilistic"
-    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", interpret_format=interpret_format)
-    
-    result_accuracy = []
-    for noise in noise_levels:
-        acc_sum = 0
-        for sample in range(samples):
-            # generator.cfg['noise']['phonetic_confusion'] = noise  # Probability of phonetic-based errors
-            # generator.cfg['noise']['filler_words'] = noise  # Probability of adding filler words
-            generator.cfg['noise']['alignment_noise'] = noise  # 0=perfect alignment, 1=high misalignment
-            # generator.cfg['noise']['incomplete_sentence'] = noise  # Probability of truncated commands
+    for model_name in [
+            # "ibm-granite/granite-3.1-2b-instruct",
+            "SultanR/SmolTulu-1.7b-Instruct",
+        ]:
+        merger = HRIMerger(name_user="casper", model_name=model_name, interpret_format=interpret_format)
+        result_accuracy = []
+        for noise in noise_levels:
+            acc_sum = 0
+            dataset = np.load(f"{llm_merger.path}/saved_datasets/{dataset_name}_n{noise}.npy", allow_pickle=True)
+            for sample in dataset:
+                voice_stamped, gesture_stamped, scene, object_names, true_sentence, CONFIG = sample.export(interpret_format)
+                
+                role_description = get_role_description(A=CONFIG["actions"], O=object_names, S=scene)
+                print(role_description)
+                
+                max_new_tokens = 1000
+                temperature = 0.0
+                top_p = 1.0
+                repetition_penalty = 1.1
+                skill_command = merger.merge( 
+                    voice_stamped=voice_stamped,
+                    gesture_stamped=gesture_stamped, 
+                    role_description=role_description,
+                    max_new_tokens = max_new_tokens,
+                    temperature = temperature,
+                    top_p = top_p,
+                    repetition_penalty = repetition_penalty,
+                    CONFIG = CONFIG,
+                    object_names = object_names,
+                )
+                if SkillCommand(true_sentence) == skill_command:
+                    acc_sum += 1
+                    print(f"{cc.W}SUCCESS{cc.E}")
+                    successful = True
+                else:
+                    print(f"{cc.F}WRONG{cc.E}")
+                    successful = False
+                
+                # here save
+                data = {
+                    "successful": successful,
+                    "true_sentence": true_sentence, 
+                    "predicted_sentence": skill_command.command,
+                    "predicted": skill_command.predicted,
+                    "model_name": merger.name(),
+                    "voice_stamped": voice_stamped,
+                    "gesture_stamped": gesture_stamped,
+                    "scene": scene, 
+                    "object_names": object_names, 
+                    "max_new_tokens": max_new_tokens, 
+                    "temperature": temperature, 
+                    "top_p": top_p, 
+                    "repetition_penalty": repetition_penalty, 
+                    "CONFIG": CONFIG, 
+                    "role_description": role_description, 
+                }
+                i = 0
+                while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
+                    i+=1
+                with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
+                    json.dump(data, file, indent=4)
+                break
+            accuracy = float(acc_sum) / len(dataset)
+            result_accuracy.append(accuracy)
 
-            sample = generator.generate_sample()
-            voice_stamped, gesture_stamped, scene, object_names, true_sentence, CONFIG = sample.export(interpret_format)
-            
-            role_description = get_role_description(A=CONFIG["actions"], O=object_names, S=scene)
-            print(role_description)
-            
-            max_new_tokens = 1000
-            temperature = 0.0
-            top_p = 1.0
-            repetition_penalty = 1.1
-            skill_command = merger.merge( 
-                voice_stamped=voice_stamped,
-                gesture_stamped=gesture_stamped, 
-                role_description=role_description,
-                max_new_tokens = max_new_tokens,
-                temperature = temperature,
-                top_p = top_p,
-                repetition_penalty = repetition_penalty,
-                CONFIG = CONFIG,
-                object_names = object_names,
-            )
-            if SkillCommand(true_sentence) == skill_command:
-                acc_sum += 1
-                successful = True
-            else:
-                successful = False
-            
-            # here save
-            data = {
-                "voice_stamped": voice_stamped,
-                "gesture_stamped": gesture_stamped,
-                "scene": scene, 
-                "object_names": object_names, 
-                "true_sentence": true_sentence, 
-                "CONFIG": CONFIG, 
-                "role_description": 
-                role_description, 
-                "max_new_tokens": max_new_tokens, 
-                "temperature": temperature, 
-                "top_p": top_p, 
-                "repetition_penalty": 
-                repetition_penalty, 
-                "successful": successful,
-            }
-            i = 0
-            while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
-                i+=1
-            with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
-                json.dump(data, file, indent=4)
+        
+        np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([noise_levels, result_accuracy]))
 
-        accuracy = float(acc_sum) / samples
-        result_accuracy.append(accuracy)
+        
 
-    
-    np.save(f"{llm_merger.path}/saved_samples/alignment_noise_data", result_accuracy)
-
-    
-
-    merger.hri.delete()
-    rclpy.shutdown()
+        merger.hri.delete()
+        rclpy.shutdown()
 
 
 
