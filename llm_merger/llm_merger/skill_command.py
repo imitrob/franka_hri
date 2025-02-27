@@ -1,25 +1,19 @@
 from copy import deepcopy
-# TODO: NOT SURE WHERE THIS WILL GO
-NOOBJ_COMMANDS = ["stop", "release", "home"]
-OBJ_COMMANDS = ["pick", "push", "pass", "put", "point", "open", "close"]
-DOUBLEOBJ_COMMAND = ["pour", "place"]
-ALL_COMMAND = NOOBJ_COMMANDS + OBJ_COMMANDS + DOUBLEOBJ_COMMAND
-
+# THESE ARE USED TO DISCARD THINGS FROM SkillCommand 
 COLORS = ["green", "blue", "red", "pink", "yellow", "black", "orange"]
 RELATIONS = ["to", "into", "onto", "from"]
 
-OBJECT_TYPES = ["cube", "bowl", "cup", "drawer", "bottle"]
-
 class SkillCommand():
-    def __init__(self, command: str = "", predicted: str = ""):
+    def __init__(self, command: str = "", predicted: str = "", CONFIG={}):
         self.command = command
         self.predicted = predicted
+        self.CONFIG=CONFIG
 
     def has_action_parameter(self):
         l = self.command.split(" ")
-        if l[0] in ALL_COMMAND: 
+        if l[0] in self.CONFIG["actions"]: 
             return False
-        elif l[1] in ALL_COMMAND:
+        elif l[1] in self.CONFIG["actions"]:
             return True
         else:
             raise Exception()
@@ -78,7 +72,7 @@ class SkillCommand():
             return False
         
     @classmethod
-    def from_predicted(cls, response):
+    def from_predicted(cls, response, CONFIG):
         predicted = deepcopy(response)
         response = response.lower()
         """ response is raw string output from LLM, all format correction is here """
@@ -126,15 +120,15 @@ class SkillCommand():
                 else:
                     r[k] = v
 
-        if r['target_action'] in NOOBJ_COMMANDS:
+        if r['target_action'] in CONFIG["zero_object_actions"]:
             return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted)
-        elif r['target_action'] in OBJ_COMMANDS:
+        elif r['target_action'] in CONFIG["single_object_actions"]:
             return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted)
-        elif r['target_action'] in DOUBLEOBJ_COMMAND:
+        elif r['target_action'] in CONFIG["double_object_actions"]:
             return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted)
         else: 
-            print("No known action", r['target_action'], " not in ", ALL_COMMAND)
-            return cls("", predicted)
+            print("No known action", r['target_action'], " not in ", CONFIG["actions"])
+            return cls("", predicted, CONFIG)
 
     def is_valid(self):
         not_valid = ""
@@ -155,13 +149,13 @@ class SkillCommand():
             if self.target_object2[-1] not in "0123456789":
                 not_valid += "object must have its id as last char"
 
-        if self.target_action in NOOBJ_COMMANDS:
+        if self.target_action in self.CONFIG["zero_object_actions"]:
             if self.target_object is not None or self.target_object2 is not None:
                 not_valid += "Not correct object number defined"
-        elif self.target_action in OBJ_COMMANDS:
+        elif self.target_action in self.CONFIG["single_object_actions"]:
             if self.target_object is None or self.target_object2 is not None:
                 not_valid += "Not correct object number defined"
-        elif self.target_action in DOUBLEOBJ_COMMAND:
+        elif self.target_action in self.CONFIG["double_object_actions"]:
             if self.target_object is None or self.target_object2 is None:
                 not_valid += "Not correct object number defined"
         else: raise Exception("Action not in list!")
@@ -181,13 +175,13 @@ class SkillCommand():
             print("Not valid")
             return
         
-        if self.target_action in NOOBJ_COMMANDS:
+        if self.target_action in self.CONFIG["zero_object_actions"]:
             print(f"Executing: {self}")
             
-        if self.target_action in OBJ_COMMANDS:
+        if self.target_action in self.CONFIG["single_object_actions"]:
             print(f"Executing: {self}")
             
-        if self.target_action in DOUBLEOBJ_COMMAND:
+        if self.target_action in self.CONFIG["double_object_actions"]:
             print(f"Executing: {self}")
 
 

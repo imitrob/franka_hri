@@ -115,7 +115,7 @@ class HRIMerger():
         self.hri.play_skill(target_action, target_object)
 
 
-    def merge(self, gesture_stamped, voice_stamped, *args, **kwargs):
+    def merge(self, gesture_stamped, voice_stamped, CONFIG, *args, **kwargs):
         print("Voice stamped: ", voice_stamped, flush=True)
         print("Gesture stamped: ", gesture_stamped, flush=True)
         print_modalities(voice_stamped, gesture_stamped)
@@ -142,7 +142,7 @@ class HRIMerger():
             self.hri.speak(f"Merged sentence is: {final_sentence}")
             predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, *args, **kwargs)
         print(f"{cc.W}LM says: {predicted} {cc.E}")
-        return SkillCommand.from_predicted(predicted)
+        return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
 
         # target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
 
@@ -178,7 +178,7 @@ class ArgmaxMerger():
             if word in CONFIG["adjectives"]:
                 ap = word
         predicted = f"property: {ap}, action: {a}, object: {o}, relationship: {p}, object2: {o2}"
-        return SkillCommand.from_predicted(predicted)
+        return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
 
 class ZeroShotMerger():
     def __init__(self,
