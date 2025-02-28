@@ -16,6 +16,7 @@ import llm_merger
 import argparse
 from pathlib import Path
 from llm_merger.utils import print_modalities
+from transformers import pipeline
 
 RECEIVE_CHECK_INTERVAL = 1.0 # [s]
 
@@ -119,7 +120,6 @@ class HRIMerger():
         print("Voice stamped: ", voice_stamped, flush=True)
         print("Gesture stamped: ", gesture_stamped, flush=True)
         print_modalities(voice_stamped, gesture_stamped)
-        self.save(voice_stamped, gesture_stamped)
 
         gesture_stamped.extend(voice_stamped)
         sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
@@ -160,14 +160,32 @@ class ArgmaxMerger():
                 dry_run: bool = None,
                 interpret_format: str = None,
                 ):
-        pass
+        self.interpret_format = interpret_format
 
     def name(self):
         return "Argmax"
 
     def merge(self, gesture_stamped, voice_stamped, CONFIG, object_names, *args, **kwargs):
+        gesture_stamped.extend(voice_stamped)
+        sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
+
+        print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
+        
+        words = np.array(sorted_sentence)[:,1]
+        
+        if self.interpret_format == "deterministic":
+            final_sentence = " ".join(words[words!=None])
+            return self._merge(final_sentence, CONFIG, object_names)
+        elif self.interpret_format == "probabilistic":
+            final_sentence = list(words[words!={}])
+            for n,word in enumerate(final_sentence):
+                if n%2==0:
+                    final_sentence.insert(n, {" ": 1.0})
+        else: raise Exception("self.interpret_format", self.interpret_format)
+        
+    def _merge(self, final_sentence, CONFIG, object_names):
         a, o, p, o2, ap = "none", "none", "none", "none", "none"
-        for word in gesture_stamped:
+        for word in final_sentence.split(" "):
             if word in CONFIG["actions"]:
                 a = word
             if word in object_names:
@@ -187,13 +205,23 @@ class ZeroShotMerger():
                 dry_run: bool = None,
                 interpret_format: str = None,
                 ):
-        pass
+        # Initialize zero-shot classifier
+        self.classifier = pipeline("zero-shot-classification", model="MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli")
 
     def name(self):
         return "ZeroShot"
 
     def merge(self, gesture_stamped, voice_stamped, CONFIG, object_names, *args, **kwargs):
-        pass
+        # Classify action and primary object
+        target_action = self.classify_entity(sentence, actions)
+        target_object = self.classify_entity(sentence, objects)
+
+
+    def classify_entity(self, sentence, candidates):
+        result = self.classifier(sentence, candidates, multi_label=False)
+        return result['labels'][0]
+
+        
 
 class BeamSearchMerger():
     def __init__(self,

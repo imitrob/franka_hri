@@ -1,5 +1,6 @@
 
-from llm_merger.llm_model import HRIMerger
+from llm_merger.llm_model import HRIMerger, ArgmaxMerger, ZeroShotMerger, BeamSearchMerger
+
 import rclpy
 import llm_merger
 import numpy as np
@@ -8,7 +9,7 @@ from pathlib import Path
 from llm_merger.role_setup import get_role_description
 from llm_merger.generate_dataset import EnhancedDatasetGenerator, CONFIG
 
-from llm_merger.skill_command import ALL_COMMAND, OBJECT_TYPES, SkillCommand
+from llm_merger.skill_command import SkillCommand
 import json, copy
 from llm_merger.generate_dataset import Sample
 from naive_merger.utils import cc
@@ -194,10 +195,14 @@ def test_on_scenarios():
     rclpy.shutdown()
 
 def test_alignment_noise(
-        noise_levels = [0.0,0.2,0.4,0.6],
+        noise_levels = [0.0,0.2,0.4,0.6,0.8,1.0],
         # noise_levels = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],
-        # dataset = "D1",
-        dataset_name = "D2",
+        # dataset_name = "D1",
+        # dataset_name = "D2",
+        # dataset_name = "D3",
+        dataset_name = "D1_CFG2",
+        # dataset_name = "D2_CFG2",
+        # dataset_name = "D3_CFG2",
         ):
     """ Do not automate this, I think this is good like it is.
         1. Choose the Merger from commented options,
@@ -205,23 +210,25 @@ def test_alignment_noise(
     """
     rclpy.init()
 
-    # model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
-    # model_name="SultanR/SmolTulu-1.7b-Reinforced"
-    # model_name="SultanR/SmolTulu-1.7b-Instruct"
-    model_name="ibm-granite/granite-3.1-2b-instruct"
-
-    # merger = ArgmaxMerger()
-    # merger = ZeroShotMerger()
-    # merger = BeamSearchMerger()
-
-    # merger = HRIMerger(name_user="casper", model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", interpret_format="deterministic")
-    # merger = HRIMerger(name_user="casper", model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", interpret_format="probabilistic")
-    interpret_format="deterministic"
+    # interpret_format="deterministic"
+    interpret_format="probabilistic"
     for model_name in [
-            # "ibm-granite/granite-3.1-2b-instruct",
+            # "SultanR/SmolTulu-1.7b-Reinforced",
             "SultanR/SmolTulu-1.7b-Instruct",
+            "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
+            # "ibm-granite/granite-3.1-2b-instruct",
+            "ArgmaxMerger",
+            # "ZeroShotMerger",
+            # "BeamSearchMerger",
         ]:
-        merger = HRIMerger(name_user="casper", model_name=model_name, interpret_format=interpret_format)
+        if model_name == "ArgmaxMerger":
+            merger = ArgmaxMerger(interpret_format=interpret_format)
+        elif model_name == "ZeroShotMerger":
+            merger = ZeroShotMerger(interpret_format=interpret_format)
+        elif model_name == "BeamSearchMerger":
+            merger = BeamSearchMerger(interpret_format=interpret_format)
+        else:
+            merger = HRIMerger(name_user="casper", model_name=model_name, interpret_format=interpret_format)
         result_accuracy = []
         for noise in noise_levels:
             acc_sum = 0
@@ -273,23 +280,22 @@ def test_alignment_noise(
                     "CONFIG": CONFIG, 
                     "role_description": role_description, 
                 }
-                i = 0
-                while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
-                    i+=1
-                with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
-                    json.dump(data, file, indent=4)
-                break
+                if not successful:
+                    i = 0
+                    while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
+                        i+=1
+                    with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
+                        json.dump(data, file, indent=4)
+                
             accuracy = float(acc_sum) / len(dataset)
             result_accuracy.append(accuracy)
 
-        
         np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([noise_levels, result_accuracy]))
-
-        
-
-        merger.hri.delete()
-        rclpy.shutdown()
-
+        if model_name != "ArgmaxMerger":
+            merger.hri.delete()
+        from llm_merger.plotter import save_plot
+        save_plot()
+    rclpy.shutdown()
 
 
 def test_on_saved_data(

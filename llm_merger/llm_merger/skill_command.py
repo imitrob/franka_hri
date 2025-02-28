@@ -90,7 +90,11 @@ class SkillCommand():
         elif "`" in response:
             print("reason formating 3")
             response = response.split("`")
-            response = response[-2]
+            if len(response) == 2:
+                response = response[-1]
+            else:
+                response = response[-2]
+
         elif "**action:" in response:
             print("reason formating 4")
             response = response.split("**")
@@ -114,14 +118,14 @@ class SkillCommand():
             if k is None: continue
             v = v.split(" ")[-1]
 
-            if v != "none" and v != "unknown":
+            if v != "none" and v != "unknown" and v != "none specified":
                 if r[k] != "": # order from model is: object, object2 right after each other; color, color2
                     r[k+"2"] = v
                 else:
                     r[k] = v
 
         if r['target_action'] in CONFIG["zero_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted)
+            return cls(f"{r['property']} {r['target_action']}".strip(), predicted)
         elif r['target_action'] in CONFIG["single_object_actions"]:
             return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted)
         elif r['target_action'] in CONFIG["double_object_actions"]:
@@ -191,13 +195,13 @@ class SkillCommand():
 
 
 def remove_types(str):
-    if "action: " in str:
+    if "action: " in str.strip():
         str = str.split("action: ")[-1]
-        str = remove_relation(str)
+        # str = remove_relation(str)
         return "target_action", str
-    if "action:" in str:
+    if "action:" in str.strip():
         str = str.split("action:")[-1]
-        str = remove_relation(str)
+        # str = remove_relation(str)
         return "target_action", str
     if "object: " in str:
         str = str.split("object: ")[-1]
@@ -223,9 +227,13 @@ def remove_types(str):
         return "target_object_color", str
     if "relationship: " in str:
         str = str.split("relationship: ")[-1]
+        # TODO:
+        if "to" in str: str = "to"
         return "relationship", str
     if "relationship:" in str:
         str = str.split("relationship:")[-1]
+        # TODO:
+        if "to" in str: str = "to"
         return "relationship", str
     if "property: " in str:
         str = str.split("property: ")[-1]

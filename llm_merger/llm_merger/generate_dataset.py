@@ -7,12 +7,13 @@ import llm_merger
 import json
 # ================= Enhanced Configuration =================
 CONFIG = {
+    "save_ext": "",
     "zero_object_actions": ["stop", "release", "home"],
-    "single_object_actions": ["pick", "push", "pass", "place", "point", "open", "close", "pour", "put"],
+    "single_object_actions": ["pick", "push", "pass", "point", "open", "close", "put"],
     "double_object_actions": ["place", "pour"],
     "actions": ["pick", "push", "pass", "place", "point", "open", "close", "pour", "put", "stop", "release", "home"], # all actions
     "adjectives": ["quickly", "slowly", "carefully", "lightly", "force"],
-    "prepositions": ["into"], #["to", "into", "onto", "from"],
+    "prepositions": ["to"], #["to", "into", "onto", "from"],
     "object_types": ["cleaner", "bowl", "cup", "drawer", "tomatoes"],
     # "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],
     "properties": {
@@ -26,16 +27,42 @@ CONFIG = {
         "alignment_noise": 0.0, #0.4,     # 0=perfect alignment, 1=high misalignment
         "incomplete_sentence": 0.0, #0.1  # Probability of truncated commands
     },
-    "max_instances": 1, #3,
-    "filler_words": ["um", "ah", "like", "you know", "well", "so"]
+    "max_instances": 1, #3, # if 1 then object don't have IDs
+    "filler_words": ["um", "ah", "like", "you know", "well", "so"],
 }
 PHONETIC_SIMILARITY_THR = 70
-OBJECT_HAS_IDS = False # max_instantes should be 1
 """NOTES:
-Max Instances=1 with OBJECT_HAS_IDS=False - Objects don't have names 
 - [ ] Add way more objects
 
 """
+
+CONFIG2 = {
+    "save_ext": "CFG2",
+    "zero_object_actions": ["stop", "release", "home"],
+    "single_object_actions": ["pick", "push", "pass", "point", "open", "close", "put"],
+    "double_object_actions": ["place", "transfer", "move"],
+    "actions": ["pick", "push", "pass", "place", "point", "open", "close", "put", "stop", "release", "home"], # all actions
+    "adjectives": ["fast","slow","force"],
+    "prepositions": ["to"], #["to", "into", "onto", "from"],
+    "object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
+    # "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],
+    "properties": {
+        "size": ["small", "medium", "large"],
+        "color": ["red", "green", "blue", "yellow"],
+        "state": ["open", "closed", "half-full"]
+    },
+    "noise": {
+        "phonetic_confusion": 0.0, #0.2,  # Probability of phonetic-based errors
+        "filler_words": 0.0, #0.3,        # Probability of adding filler words
+        "alignment_noise": 0.0, #0.4,     # 0=perfect alignment, 1=high misalignment
+        "incomplete_sentence": 0.0, #0.1  # Probability of truncated commands
+    },
+    "max_instances": 1, #3, # if 1 then object don't have IDs
+    "filler_words": ["um", "ah", "like", "you know", "well", "so"],
+}
+["stop", "release", "home", "pick", "push", "pass", "point", "open", "close", "put", "place", "pick", "push", "pass", "place", "point", "open", "close", "put", "stop", "release", "home", "force", "to", "into", "onto", "from", 
+ "cup", "cube", "plate", "cup", "small", "medium", "large", "red", "green", "blue", "open", "closed", "table", "can", "box", "fork", "marker", "note", "flow", "transfer", "storage", "blade", "rack", "ledge", "stand", "platform"]
+
 # ===========================================================
 
 @dataclass
@@ -69,7 +96,7 @@ class EnhancedDatasetGenerator:
         scene = {}
         for obj_type in self.cfg['object_types']:
             for i in range(random.randint(1, self.cfg['max_instances'])):
-                if OBJECT_HAS_IDS:
+                if self.cfg['max_instances'] != 1:
                     obj_id = f"{obj_type}{i+1}"
                 else:
                     obj_id = f"{obj_type}"
@@ -121,7 +148,8 @@ class EnhancedDatasetGenerator:
         
         # Randomly truncate sentence
         if random.random() < self.cfg['noise']['incomplete_sentence']:
-            words = words[:random.randint(1, len(words)-1)]
+            if len(words) > 2:
+                words = words[:random.randint(1, len(words)-1)]
             
         for word in words:
             timestamp += round(random.uniform(0.1, 0.3), 1)
@@ -180,7 +208,7 @@ class EnhancedDatasetGenerator:
         else:
             while target_obj == dest_obj:  # Ensure different objects
                 target_obj = random.choice(list(scene.values()))
-                if action in self.cfg['zero_object_actions']:
+                if action in self.cfg['double_object_actions']:
                     dest_objs = [obj for obj in scene.values() if obj != target_obj]
                     dest_obj = random.choice(dest_objs) if dest_objs else None
             
@@ -218,7 +246,7 @@ class EnhancedDatasetGenerator:
             voice,
             gesture,
             true_sentence,
-            CONFIG
+            self.cfg
         )
 
 class cc:
@@ -288,7 +316,10 @@ class Sample():
 
 # ================= Usage Example =================
 if __name__ == "__main__":
-    generator = EnhancedDatasetGenerator()
+
+
+    # generator = EnhancedDatasetGenerator()
+    generator = EnhancedDatasetGenerator(config=CONFIG2)
     
     # save D1
     for n in [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]:
@@ -303,8 +334,8 @@ if __name__ == "__main__":
             print(sample)
             dataset.append(sample)
         
-        np.save(f"{llm_merger.path}/saved_datasets/D1_n{n}.npy", dataset)
-        with open(f"{llm_merger.path}/saved_datasets/D1_n{n}.json", "w") as file:
+        np.save(f"{llm_merger.path}/saved_datasets/D1_{sample.CONFIG['save_ext']}_n{n}.npy", dataset)
+        with open(f"{llm_merger.path}/saved_datasets/D1_{sample.CONFIG['save_ext']}_n{n}.json", "w") as file:
             json.dump(generator.cfg, file, indent=4)
 
     # save D2
@@ -320,6 +351,23 @@ if __name__ == "__main__":
             print(sample)
             dataset.append(sample)
         
-        np.save(f"{llm_merger.path}/saved_datasets/D2_n{n}.npy", dataset)
-        with open(f"{llm_merger.path}/saved_datasets/D2_n{n}.json", "w") as file:
+        np.save(f"{llm_merger.path}/saved_datasets/D2_{sample.CONFIG['save_ext']}_n{n}.npy", dataset)
+        with open(f"{llm_merger.path}/saved_datasets/D2_{sample.CONFIG['save_ext']}_n{n}.json", "w") as file:
+            json.dump(generator.cfg, file, indent=4)
+
+    # save D3
+    for n in [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]:
+        generator.cfg['noise']['phonetic_confusion'] = n  # Probability of phonetic-based errors
+        generator.cfg['noise']['filler_words'] = n  # Probability of adding filler words
+        generator.cfg['noise']['alignment_noise'] = 0.0  # 0=perfect alignment, 1=high misalignment
+        generator.cfg['noise']['incomplete_sentence'] = n  # Probability of truncated commands
+        
+        dataset = []
+        for i in range(20):
+            sample = generator.generate_sample()
+            print(sample)
+            dataset.append(sample)
+        
+        np.save(f"{llm_merger.path}/saved_datasets/D3_{sample.CONFIG['save_ext']}_n{n}.npy", dataset)
+        with open(f"{llm_merger.path}/saved_datasets/D3_{sample.CONFIG['save_ext']}_n{n}.json", "w") as file:
             json.dump(generator.cfg, file, indent=4)

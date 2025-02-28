@@ -25,14 +25,15 @@ def plot_model_performance(model_accuracies, xlabel, filename):
     
     plt.savefig(filename)
 
-model_accuracies = {}
-for filename in Path("/home/imitlearn/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_results").glob("*.npy"):
-    noise_data = np.load(filename)
-    model_accuracies[str(filename).split("/")[-1]] = noise_data
-    
-plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{align}$ [-]", "/home/imitlearn/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_results/noise_results.pdf")
+def save_plot():
+    model_accuracies = {}
+    for filename in Path("/home/doma/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_results").glob("*.npy"):
+        noise_data = np.load(filename)
+        model_accuracies[str(filename).split("/")[-1]] = noise_data
+        
+    plot_model_performance(model_accuracies, "Noise Level $\mathcal{N}_{align}$ [-]", "/home/doma/lfd_ws/src/franka_hri/llm_merger/llm_merger/saved_results/noise_results.pdf")
 
 
-
-
+if __name__ == "__main__":
+    save_plot()
 
