@@ -26,6 +26,7 @@ class HRIMerger():
                 model_name: str,
                 dry_run: bool = True,
                 interpret_format: str = "deterministic",
+                tts_enabled = True,
                 ):
         """_summary_
 
@@ -40,13 +41,13 @@ class HRIMerger():
             self.hri = HCI(
                 name_user = name_user,
                 nlp_model_name = model_name,
-                tts_enabled = True,
+                tts_enabled = tts_enabled,
                 stt_type = self.interpret_format
             )
         else: # With robot control
             self.hri = HRI(
                 name_user = name_user,
-                tts_enabled = True,
+                tts_enabled = tts_enabled,
                 dry_run = False,
                 nlp_model_name = model_name,
                 stt_type = self.interpret_format
@@ -66,7 +67,7 @@ class HRIMerger():
             time.sleep(RECEIVE_CHECK_INTERVAL)
             if len(self.record_queue) > 0:
                 record_stamped_file_name = self.record_queue.pop()
-                voicecommand = self.hri.stt.stamped_transcribe(record_stamped_file_name)
+                voicecommand = self.hri.stt(record_stamped_file_name)
 
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
@@ -78,6 +79,25 @@ class HRIMerger():
 
                 self.record_queue = []
                 self.gestures_queue = []
+
+    def spin_save(self):
+        while rclpy.ok():
+            time.sleep(RECEIVE_CHECK_INTERVAL)
+            if len(self.record_queue) > 0:
+                record_stamped_file_name = self.record_queue.pop()
+                voicecommand = self.hri.stt(record_stamped_file_name)
+
+                if len(self.gestures_queue) > 1:
+                    self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
+                if len(self.gestures_queue) > 0:
+                    hricommand = self.gestures_queue.pop()
+                    self.save_command(voicecommand, hricommand)
+                else:
+                    self.save_command(voicecommand, [])
+                
+                self.record_queue = []
+                self.gestures_queue = []
+
 
 
     def receive_voice_record(self, msg):
@@ -139,12 +159,23 @@ class HRIMerger():
             for n,word in enumerate(final_sentence):
                 if n%2==0:
                     final_sentence.insert(n, {" ": 1.0})
+            final_sentence.insert(0, {" ": 1.0})
+            final_sentence.insert(0, {" ": 1.0})
+            final_sentence.append({" ": 1.0})
+            final_sentence.append({" ": 1.0})
             self.hri.speak(f"Merged sentence is: {final_sentence}")
             predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, *args, **kwargs)
         print(f"{cc.W}LM says: {predicted} {cc.E}")
         return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
 
         # target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
+
+
+    def save_command(self, voice_command, gesture_command):
+        i = 0
+        while Path(f"{llm_merger.path}/saved_inputs/save_{i}.npz").is_file():
+            i+=1
+        np.savez(f"{llm_merger.path}/saved_inputs/save_{i}", voice_command=np.array(voice_command), gesture_command=np.array(gesture_command))
 
 
     def save(self, voice_stamped, gesture_stamped):
@@ -241,7 +272,11 @@ class BeamSearchMerger():
 def main():
     parser = argparse.ArgumentParser(description="My ROS 2 Node")
     parser.add_argument('--name_user', type=str, help='The user name', default="casper")
-    parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="deterministic")
+    parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="probabilistic")
+    # parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="probabilistic")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="ArgmaxMerger")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
     parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=True)
     parser.add_argument('--role_version', type=str, help='Role description', default="v1")
@@ -253,9 +288,14 @@ def main():
 
     rclpy.init()
 
-    merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, dry_run=args.dry_run, interpret_format=args.interpret_format)
+    if args.name_model == "ArgmaxMerger":
+        merger = ArgmaxMerger(interpret_format=args.interpret_format)
+    else:
+        merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format)
+
     print(merger.hri.print_user_preferences())
-    merger.spin(args.role_version)
+    # merger.spin(args.role_version)
+    merger.spin_save()
 
 if __name__ == "__main__":
     main()

@@ -107,7 +107,7 @@ class SentenceProcessor():
         # Step 1: Build the text prompt via chat template
         messages = [
             {"role": "system", "content": role_description},
-            {"role": "user", "content": "What is your faviourite food?"}  # Placeholder for user input
+            {"role": "user", "content": "<|start_of_text|>What is your faviourite food?"}  # Placeholder for user input
         ]
         text_prompt = self.tokenizer.apply_chat_template(
             messages,
@@ -156,44 +156,57 @@ class SentenceProcessor():
             tokenize=False,
             add_generation_prompt=True
         )
-
         # Tokenize the full prompt to get token IDs
         full_prompt_ids = self.tokenizer(text_prompt, return_tensors="pt")["input_ids"][0].tolist()
 
-        # Tokenize the user role token (<|user|>) and user message separately
-        user_role_token = "<|user|>"
-        user_role_token_ids = self.tokenizer(user_role_token, add_special_tokens=False)["input_ids"]
-
+        
         # Locate the start of the user content
-        try:
-            # Find the position of the user role token
-            user_start = None
-            for i in range(len(full_prompt_ids) - len(user_role_token_ids) + 1):
-                if full_prompt_ids[i:i + len(user_role_token_ids)] == user_role_token_ids:
-                    user_start = i + len(user_role_token_ids)  # Start of user content
-                    break
-            if user_start is None:
-                raise ValueError("Could not locate user role token in the prompt.")
-            
-            # Find the end of the user content (assume it ends at the assistant role token)
-            assistant_role_token = "<|assistant|>"
-            assistant_role_token_ids = self.tokenizer(assistant_role_token, add_special_tokens=False)["input_ids"]
-            user_end = None
-            for i in range(user_start, len(full_prompt_ids) - len(assistant_role_token_ids) + 1):
-                if full_prompt_ids[i:i + len(assistant_role_token_ids)] == assistant_role_token_ids:
-                    user_end = i  # End of user content
-                    break
-            if user_end is None:
-                raise ValueError("Could not locate assistant role token in the prompt.")
-        except Exception as e:
-            raise RuntimeError(f"Failed to locate user content in the prompt: {e}")
+        found_replace_option = False
+        for replace_option in [
+                ["<|user|>", "<|assistant|>",0],
+                ["<|start_of_text|>", "<|end_of_text|>",1],
+                ["[|user|]", "[|assistant|]",2],
+            ]:
+            # Tokenize the user role token (<|user|>) and user message separately
+            user_role_token = replace_option[0] #"<|start_of_text|>" #"<|user|>"
+            user_role_token_ids = self.tokenizer(user_role_token, add_special_tokens=False)["input_ids"]
 
+            try:
+                # Find the position of the user role token
+                user_start = None
+                for i in range(len(full_prompt_ids) - len(user_role_token_ids) + 1):
+                    if full_prompt_ids[i:i + len(user_role_token_ids)] == user_role_token_ids:
+                        user_start = i + len(user_role_token_ids)  # Start of user content
+                        break
+                if user_start is None:
+                    raise ValueError("Could not locate user role token in the prompt.")
+                
+                # Find the end of the user content (assume it ends at the assistant role token)
+                assistant_role_token = replace_option[1] #"<|end_of_text|>" #"<|assistant|>"
+                assistant_role_token_ids = self.tokenizer(assistant_role_token, add_special_tokens=False)["input_ids"]
+                user_end = None
+                for i in range(user_start, len(full_prompt_ids) - len(assistant_role_token_ids) + 1):
+                    if full_prompt_ids[i:i + len(assistant_role_token_ids)] == assistant_role_token_ids:
+                        user_end = i  # End of user content
+                        break
+                if user_end is None:
+                    found_replace_option = False
+                    continue
+            except Exception as e:
+                found_replace_option = False
+                continue
+            found_replace_option = True
+            break
+        if not found_replace_option:
+            raise ValueError(f"Could not locate assistant role token in the prompt. {text_prompt}")
+        
         # Step 4: Replace user content with soft embeddings
         combined_inputs_embeds = torch.cat([
             prompt_embeds[:, :user_start, :],  # System prompt and user role token
             soft_embeds,  # User's probabilistic input
             prompt_embeds[:, user_end:, :]  # Assistant role token and generation prompt
         ], dim=1)
+
 
         # Step 4: Create attention mask
         combined_attention_mask = torch.ones(combined_inputs_embeds.shape[:2], device=combined_inputs_embeds.device)

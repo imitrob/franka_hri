@@ -27,17 +27,14 @@
         "point",
         "open",
         "close",
-        "",
         "put",
         "stop",
         "release",
         "home"
     ],
     "adjectives": [
-        "quickly",
-        "slowly",
-        "carefully",
-        "lightly",
+        "fast",
+        "slow",
         "force"
     ],
     "prepositions": [

@@ -93,7 +93,17 @@ class SkillCommand():
             if len(response) == 2:
                 response = response[-1]
             else:
-                response = response[-2]
+                if "action:" in response[-2]:
+                    response = response[-2]
+                elif "action:" in response[-3]:
+                        response = response[-3]
+                elif "action:" in response[-4]:
+                        response = response[-4]
+                elif "action:" in response[-5]:
+                        response = response[-5]
+                elif "action:" in response[-6]:
+                        response = response[-6]
+
 
         elif "**action:" in response:
             print("reason formating 4")
