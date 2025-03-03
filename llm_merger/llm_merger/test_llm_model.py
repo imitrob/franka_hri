@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 
 from llm_merger.role_setup import get_role_description
-from llm_merger.generate_dataset import EnhancedDatasetGenerator, CONFIG
+from llm_merger.generate_dataset import EnhancedDatasetGenerator, CONFIG, CONFIG3
 
 from llm_merger.skill_command import SkillCommand
 import json, copy
@@ -84,6 +84,79 @@ def test_just_probabilistic():
     merger.hri.delete()
     rclpy.shutdown()
 
+def test_just_alternatives():
+    rclpy.init()
+    merger = HRIMerger(name_user="casper", model_name="ibm-granite/granite-3.1-2b-instruct", interpret_format="alternatives")
+
+    S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl."
+    skill_command = merger.merge( 
+        voice_stamped = [
+            [0.0, {"kick": 1.0}],
+            [0.2, {"up": 1.0}],
+            [0.4, {"this": 1.0}],
+        ],
+        gesture_stamped = [
+            [0.6, {"cup1": 0.5}],
+        ], 
+        role_description=get_role_description(
+            A=CONFIG3["actions"], 
+            O=["cup1", "container1", "bowl1"],
+            S=S, 
+        ), CONFIG=CONFIG3
+    )
+    assert skill_command == SkillCommand("pick box")
+    merger.hri.delete()
+    rclpy.shutdown()
+
+def test_just_alternatives2():
+    rclpy.init()
+
+    model_name="SultanR/SmolTulu-1.7b-Reinforced"
+    model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
+    model_name="ibm-granite/granite-3.1-2b-instruct"
+    merger = HRIMerger(name_user="casper", model_name=model_name, interpret_format="alternatives")
+
+    S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl."
+    skill_command = merger.merge( 
+        voice_stamped = [
+            [0.0, {"kick": 1.0, "pick": 0.8}],
+            [0.2, {"up": 0.8, "pup": 0.6}],
+            [0.4, {"this": 0.9, "is": 0.2}],
+        ],
+        gesture_stamped = [
+            [0.6, {"box": 1.0, "fox": 0.9}],
+        ], 
+        role_description=get_role_description(
+            A=CONFIG3["actions"], 
+            O=["cup1", "box", "plate1"]
+        ), CONFIG=CONFIG3
+    )
+    assert skill_command == SkillCommand("pick box")
+    merger.hri.delete()
+    rclpy.shutdown()
+
+def test_just_alternatives3():
+    rclpy.init()
+    merger = HRIMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", interpret_format="alternatives")
+
+    S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl."
+    skill_command = merger.merge( 
+        voice_stamped = [
+            [0.0, {"pick": 1.0}],
+            [0.2, {"up": 1.0}],
+            [0.4, {"this": 1.0}],
+        ],
+        gesture_stamped = [
+            [0.6, {"box": 1.0}],
+        ], 
+        role_description=get_role_description(
+            A=CONFIG3["actions"], 
+            O=["cup1", "box", "plate1"]
+        ), CONFIG=CONFIG3
+    )
+    assert skill_command == SkillCommand("pick box")
+    merger.hri.delete()
+    rclpy.shutdown()
 
 def test_lm():
     rclpy.init()
@@ -200,9 +273,9 @@ def test_alignment_noise(
         # dataset_name = "D1",
         # dataset_name = "D2",
         # dataset_name = "D3",
-        dataset_name = "D1_CFG2",
+        # dataset_name = "D1_CFG2",
         # dataset_name = "D2_CFG2",
-        # dataset_name = "D3_CFG2",
+        dataset_name = "D3_CFG2",
         ):
     """ Do not automate this, I think this is good like it is.
         1. Choose the Merger from commented options,
@@ -210,14 +283,15 @@ def test_alignment_noise(
     """
     rclpy.init()
 
-    # interpret_format="deterministic"
-    interpret_format="probabilistic"
+    interpret_format="deterministic"
+    # interpret_format="probabilistic"
+    # interpret_format="alternatives"
     for model_name in [
             # "SultanR/SmolTulu-1.7b-Reinforced",
             # "SultanR/SmolTulu-1.7b-Instruct",
-            "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
+            # "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
             # "ibm-granite/granite-3.1-2b-instruct",
-            # "ArgmaxMerger",
+            "ArgmaxMerger",
             # "ZeroShotMerger",
             # "BeamSearchMerger",
         ]:
@@ -282,21 +356,23 @@ def test_alignment_noise(
                     "CONFIG": CONFIG, 
                     "role_description": role_description, 
                 }
-                if not successful:
-                    i = 0
-                    while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
-                        i+=1
-                    with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
-                        json.dump(data, file, indent=4)
+                # if not successful:
+                #     i = 0
+                #     while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
+                #         i+=1
+                #     with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
+                #         json.dump(data, file, indent=4)
                 print(f"time: {time.time()-t0}")
             accuracy = float(acc_sum) / len(dataset)
             result_accuracy.append(accuracy)
 
-        np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([noise_levels, result_accuracy]))
+        print(f"accuracy: {result_accuracy}")
+
+        # np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([noise_levels, result_accuracy]))
         if model_name != "ArgmaxMerger":
             merger.hri.delete()
-        from llm_merger.plotter import save_plot
-        save_plot()
+        # from llm_merger.plotter import save_plot
+        # save_plot()
     rclpy.shutdown()
 
 
@@ -305,17 +381,24 @@ def test_on_saved_data(
         object_names = ["cup", "cube", "plate", "table", "box"], # ",  "can", , "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"
         action_names = ["pick", "push", "pass", "place", "point", "open", "close", "pour", "put", "stop", "release", "home"],
         scene = "cube is red cube. cup is red cup. plate is blue plate. table is big green table.",
-        true_sentence = "pick cube",
+        gt = ["pick cube", "pick_cube"],
+        # gt = ["pick cube", "pick_red_object"],
+        # gt = ["put cube to box", "put_cup_to_bowl"],
+        # gt = ["put cube to box", "put_this_to_there"],
+
     ):
+    true_sentence, folder = gt
     rclpy.init()
-    # interpret_format="deterministic"
-    interpret_format="probabilistic"
+    CONFIG = CONFIG3
+    interpret_format="deterministic"
+    # interpret_format="probabilistic"
+    # interpret_format="alternatives"
     for model_name in [
             # "SultanR/SmolTulu-1.7b-Reinforced",
             # "SultanR/SmolTulu-1.7b-Instruct",
             # "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
-            "ibm-granite/granite-3.1-2b-instruct",
-            # "ArgmaxMerger",
+            # "ibm-granite/granite-3.1-2b-instruct",
+            "ArgmaxMerger",
             # "ZeroShotMerger",
             # "BeamSearchMerger",
         ]:
@@ -330,20 +413,24 @@ def test_on_saved_data(
     
         
         j = 0
-        while Path(f"{llm_merger.path}/saved_inputs/save_{j}.npz").is_file():
-            save = np.load(f"{llm_merger.path}/saved_inputs/save_{j}.npz", allow_pickle=True)
+        acc_sum = 0
+        while Path(f"{llm_merger.path}/saved_inputs/{folder}/save_{j}.npz").is_file():
+            save = np.load(f"{llm_merger.path}/saved_inputs/{folder}/save_{j}.npz", allow_pickle=True)
             j+=1
 
-            acc_sum = 0
+            
             voicecommand, hricommand = save["voice_command"], save["gesture_command"].item()
             
             if interpret_format == "deterministic":
                 gesture_stamped = hricommand.get_target_timestamped_list()
                 voice_stamped = voicecommand
-            elif interpret_format == "probabilistic":
+                ret = []
+                for t,w in voicecommand:
+                    ret.append([t,sorted(w])
+            elif interpret_format in ["probabilistic", "alternatives"]:
                 gesture_stamped = hricommand.get_target_timestamped_probabilistic()
                 voice_stamped = voicecommand
-
+            print(gesture_stamped, voice_stamped)
             
             role_description = get_role_description(A=action_names, O=object_names, S=scene)
             print(role_description)
@@ -378,8 +465,8 @@ def test_on_saved_data(
                 "predicted_sentence": skill_command.command,
                 "predicted": skill_command.predicted,
                 "model_name": merger.name(),
-                "voice_stamped": voice_stamped,
-                "gesture_stamped": gesture_stamped,
+                "voice_stamped": [list(v) for v in voice_stamped],
+                "gesture_stamped": [list(v) for v in gesture_stamped],
                 "scene": scene, 
                 "object_names": object_names, 
                 "max_new_tokens": max_new_tokens, 
@@ -389,17 +476,17 @@ def test_on_saved_data(
                 "CONFIG": CONFIG, 
                 "role_description": role_description, 
             }
-            if not successful:
-                i = 0
-                while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
-                    i+=1
-                with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
-                    json.dump(data, file, indent=4)
+            # if not successful:
+            #     i = 0
+            #     while Path(f"{llm_merger.path}/saved_samples/save_{i}.json").is_file():
+            #         i+=1
+            #     with open(f"{llm_merger.path}/saved_samples/save_{i}.json", "w") as file:
+            #         json.dump(data, file, indent=4)
             
         accuracy = float(acc_sum) / j
 
-
-        np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([accuracy]))
+        print("final acc", accuracy)
+        # np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([accuracy]))
         if model_name != "ArgmaxMerger":
             merger.hri.delete()
         # from llm_merger.plotter import save_plot
@@ -413,6 +500,10 @@ if __name__ == "__main__":
     # test_skill_commands()
     # test_just_to_see_if_works()
     # test_just_probabilistic()
+    # test_just_alternatives()
+    # test_just_alternatives2()
+    # test_just_alternatives3()
+
     # test_lm()
     # test_unsuccessful()
 

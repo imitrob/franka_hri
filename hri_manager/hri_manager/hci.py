@@ -53,6 +53,8 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
             self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
         elif self.stt_type == "probabilistic":
             self.stt = ProbabilisticSpeechToTextModel(device="cuda")
+        elif self.stt_type == "alternatives":
+            self.stt = ProbabilisticSpeechToTextModel(device="cuda")
         else: raise Exception()
 
         if self.tts_enabled:

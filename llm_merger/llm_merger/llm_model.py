@@ -165,6 +165,24 @@ class HRIMerger():
             final_sentence.append({" ": 1.0})
             self.hri.speak(f"Merged sentence is: {final_sentence}")
             predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, *args, **kwargs)
+        elif self.interpret_format == "alternatives":
+            # ans = beam_search(words)
+            # ans_list = [" ".join(list(a.values())[0]) for a in ans]
+            # for n in range(len(ans_list)):
+            #     ans_list[n] = ans_list[n].replace(".", ",")
+            # final_sentence = ". ".join(ans_list)
+            # self.hri.speak(f"Merged sentence is: {final_sentence}")
+            # predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
+            # breakpoint()
+            words = list(words[words!={}])
+            final_sentence = f""
+            for word in words:
+                most_prob_alternatives = [k for k, v in sorted(word.items(), key=lambda x: x[1], reverse=True)][:3]
+                final_sentence += "[" + " ".join(most_prob_alternatives) + "]"
+            
+            self.hri.speak(f"Merged sentence is: {final_sentence}")
+            predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
+            
         print(f"{cc.W}LM says: {predicted} {cc.E}")
         return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
 
@@ -208,26 +226,40 @@ class ArgmaxMerger():
             final_sentence = " ".join(words[words!=None])
             return self._merge(final_sentence, CONFIG, object_names)
         elif self.interpret_format == "probabilistic":
-            final_sentence = list(words[words!={}])
-            for n,word in enumerate(final_sentence):
-                if n%2==0:
-                    final_sentence.insert(n, {" ": 1.0})
-        else: raise Exception("self.interpret_format", self.interpret_format)
+            raise Exception()
         
     def _merge(self, final_sentence, CONFIG, object_names):
         a, o, p, o2, ap = "none", "none", "none", "none", "none"
+        setting_obj_2 = False
         for word in final_sentence.split(" "):
             if word in CONFIG["actions"]:
                 a = word
             if word in object_names:
-                o = word
-                o2 = word
+                if setting_obj_2:
+                    o2 = word
+                else:
+                    o = word
+                    setting_obj_2 = True
             if word in CONFIG["prepositions"]:
                 p = word
             if word in CONFIG["adjectives"]:
                 ap = word
         predicted = f"property: {ap}, action: {a}, object: {o}, relationship: {p}, object2: {o2}"
         return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
+
+def beam_search(input_lattice, beam_width=5):
+    beam = [{'sentence': [], 'score': 1.0}]
+    for word_options in input_lattice:
+        new_beam = []
+        for candidate in beam:
+            for word, prob in word_options.items():
+                new_sentence = candidate['sentence'] + [word]
+                new_score = candidate['score'] * prob
+                new_beam.append({'sentence': new_sentence, 'score': new_score})
+        # Keep top-k candidates by score
+        new_beam.sort(key=lambda x: -x['score'])
+        beam = new_beam[:beam_width]
+    return beam
 
 class ZeroShotMerger():
     def __init__(self,
