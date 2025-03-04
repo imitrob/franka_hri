@@ -27,6 +27,10 @@ class HriCommand():
     def target_object(self):
         return self.pv_dict["object"].max
 
+    @property
+    def target_storage(self):
+        return self.pv_dict["storage"].max
+
 
     def __matmul__(self, other):
         """ Do modality merging of two HriCommand objects as (hri_command1 @ hri_command2) """
@@ -146,14 +150,34 @@ class HriCommand():
         else:
             return -1.0
 
+    def get_storage_stamp(self):
+        if 'storage' in self.stamps:
+            return self.stamps["storage"]
+        else:
+            return -1.0
+
     def get_target_timestamped_list(self):
-        return [
-            [self.get_action_stamp(), self.target_action],
-            [self.get_object_stamp(), self.target_object],
-        ]
+        if "storage" in self.pv_dict:
+            return [
+                [self.get_action_stamp(), self.target_action],
+                [self.get_object_stamp(), self.target_object],
+                [self.get_storage_stamp(), self.target_storage],
+            ]
+        else:
+            return [
+                [self.get_action_stamp(), self.target_action],
+                [self.get_object_stamp(), self.target_object],
+            ]
     
     def get_target_timestamped_probabilistic(self):
-        return [
-            [self.get_action_stamp(), self.pv_dict["action"].dict],
-            [self.get_object_stamp(), self.pv_dict["object"].dict],
-        ]
+        if "storage" in self.pv_dict:
+            return [
+                [self.get_action_stamp(), self.pv_dict["action"].dict],
+                [self.get_object_stamp(), self.pv_dict["object"].dict],
+                [self.get_storage_stamp(), self.pv_dict["storage"].dict],
+            ]
+        else:
+            return [
+                [self.get_action_stamp(), self.pv_dict["action"].dict],
+                [self.get_object_stamp(), self.pv_dict["object"].dict],
+            ]

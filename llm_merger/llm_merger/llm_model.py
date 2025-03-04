@@ -85,12 +85,14 @@ class HRIMerger():
             time.sleep(RECEIVE_CHECK_INTERVAL)
             if len(self.record_queue) > 0:
                 record_stamped_file_name = self.record_queue.pop()
-                voicecommand = self.hri.stt(record_stamped_file_name)
+                voicecommand = self.hri.stt.stamped_transcribe(record_stamped_file_name)
 
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
                 if len(self.gestures_queue) > 0:
                     hricommand = self.gestures_queue.pop()
+                    print(hricommand)
+                    print(voicecommand)
                     self.save_command(voicecommand, hricommand)
                 else:
                     self.save_command(voicecommand, [])
@@ -175,11 +177,28 @@ class HRIMerger():
             # predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
             # breakpoint()
             words = list(words[words!={}])
-            final_sentence = f""
+            final_sentence = f"\n"
             for word in words:
-                most_prob_alternatives = [k for k, v in sorted(word.items(), key=lambda x: x[1], reverse=True)][:3]
-                final_sentence += "[" + " ".join(most_prob_alternatives) + "]"
-            
+                # for w,p in list(word.items()):
+                #     if w in [" ", "a", "the", ""] or (w not in ["pick", "push", "pass", "place", "point", "open", "close", "pour", "put", "stop", "release", "home", "quickly", "slowly", "carefully", "lightly", "force", "cleaner", "bowl", "cup", "drawer", "tomatoes", "fast","slow","force", "small", "medium", "large", "red", "green", "blue", "yellow", "open", "closed", "half-full", "to", "cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform", 
+                #                                                 "cup1", "cube1", "plate1", "table1", "can1", "box1", "fork1", "marker1", "note1", "storage1", "blade1", "rack1", "ledge1", "stand1", "platform1",
+                #                                                 "cup2", "cube2", "plate2", "table2", "can2", "box2", "fork2", "marker2", "note2", "storage2", "blade2", "rack2", "ledge2", "stand2", "platform2",
+                #                                                 "cup3", "cube3", "plate3", "table3", "can3", "box3", "fork3", "marker3", "note3", "storage3", "blade3", "rack3", "ledge3", "stand3", "platform3",
+                #                                                 ]):
+                #         word.pop(w)
+
+                most_prob_alternatives = [k for k, v in sorted(word.items(), key=lambda x: x[1], reverse=True)][:2]
+                grading = ["likely", "possible", "unlikely", "least likely"]
+                for n,option in enumerate(most_prob_alternatives):
+                    if option not in [" ", "a", "the", ""]:
+                        if option[-1] == ".":
+                            option = option[:-1]
+                        if (n+2) > len(most_prob_alternatives):
+                            final_sentence += f'- "{option}" is {grading[n+1]}\n'
+                        else:
+                            final_sentence += f'- "{option}" is {grading[n]}\n'
+                        # if True:
+
             self.hri.speak(f"Merged sentence is: {final_sentence}")
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
             
@@ -191,9 +210,9 @@ class HRIMerger():
 
     def save_command(self, voice_command, gesture_command):
         i = 0
-        while Path(f"{llm_merger.path}/saved_inputs/save_{i}.npz").is_file():
+        while Path(f"{llm_merger.path}/saved_inputs/put_the_red_thing_to_the_black_thing/save_{i}.npz").is_file():
             i+=1
-        np.savez(f"{llm_merger.path}/saved_inputs/save_{i}", voice_command=np.array(voice_command), gesture_command=np.array(gesture_command))
+        np.savez(f"{llm_merger.path}/saved_inputs/put_the_red_thing_to_the_black_thing/save_{i}", voice_command=np.array(voice_command), gesture_command=np.array(gesture_command))
 
 
     def save(self, voice_stamped, gesture_stamped):
@@ -228,7 +247,7 @@ class ArgmaxMerger():
         elif self.interpret_format == "probabilistic":
             raise Exception()
         
-    def _merge(self, final_sentence, CONFIG, object_names):
+    def _merge2(self, final_sentence, CONFIG, object_names):
         a, o, p, o2, ap = "none", "none", "none", "none", "none"
         setting_obj_2 = False
         for word in final_sentence.split(" "):
@@ -243,6 +262,25 @@ class ArgmaxMerger():
             if word in CONFIG["prepositions"]:
                 p = word
             if word in CONFIG["adjectives"]:
+                ap = word
+        predicted = f"property: {ap}, action: {a}, object: {o}, relationship: {p}, object2: {o2}"
+        return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
+
+    def _merge(self, final_sentence, CONFIG, object_names):
+        a, o, p, o2, ap = "none", "none", "none", "none", "none"
+        setting_obj_2 = False
+        for word in final_sentence.split(" "):
+            if a == "none" and word in CONFIG["actions"]:
+                a = word
+            if (o == "none" or o2 == "none") and word in object_names:
+                if setting_obj_2:
+                    o2 = word
+                else:
+                    o = word
+                    setting_obj_2 = True
+            if p == "none" and word in CONFIG["prepositions"]:
+                p = word
+            if ap == "none" and word in CONFIG["adjectives"]:
                 ap = word
         predicted = f"property: {ap}, action: {a}, object: {o}, relationship: {p}, object2: {o2}"
         return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)

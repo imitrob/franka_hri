@@ -1,0 +1,93 @@
+{
+    "save_ext": "CFG3",
+    "zero_object_actions": [
+        "stop",
+        "release",
+        "home"
+    ],
+    "single_object_actions": [
+        "pick",
+        "push",
+        "pass",
+        "point",
+        "open",
+        "close"
+    ],
+    "double_object_actions": [
+        "place",
+        "transfer",
+        "move",
+        "put"
+    ],
+    "actions": [
+        "pick",
+        "push",
+        "pass",
+        "place",
+        "point",
+        "open",
+        "close",
+        "put",
+        "stop",
+        "release",
+        "home"
+    ],
+    "adjectives": [
+        "fast",
+        "slow",
+        "force"
+    ],
+    "prepositions": [
+        "to"
+    ],
+    "object_types": [
+        "cup",
+        "cube",
+        "plate",
+        "table",
+        "can",
+        "box",
+        "fork",
+        "marker",
+        "note",
+        "storage",
+        "blade",
+        "rack",
+        "ledge",
+        "stand",
+        "platform"
+    ],
+    "properties": {
+        "size": [
+            "small",
+            "medium",
+            "large"
+        ],
+        "color": [
+            "red",
+            "green",
+            "blue",
+            "yellow"
+        ],
+        "state": [
+            "open",
+            "closed",
+            "half-full"
+        ]
+    },
+    "noise": {
+        "phonetic_confusion": 0.5,
+        "filler_words": 0.1,
+        "alignment_noise": 0.0,
+        "incomplete_sentence": 0.1
+    },
+    "max_instances": 3,
+    "filler_words": [
+        "um",
+        "ah",
+        "like",
+        "you know",
+        "well",
+        "so"
+    ]
+}

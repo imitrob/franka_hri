@@ -68,8 +68,8 @@ CONFIG2 = {
 CONFIG3 = {
     "save_ext": "CFG3",
     "zero_object_actions": ["stop", "release", "home"],
-    "single_object_actions": ["pick", "push", "pass", "point", "open", "close", "put"],
-    "double_object_actions": ["place", "transfer", "move"],
+    "single_object_actions": ["pick", "push", "pass", "point", "open", "close"],
+    "double_object_actions": ["place", "transfer", "move", "put"],
     "actions": ["pick", "push", "pass", "place", "point", "open", "close", "put", "stop", "release", "home"], # all actions
     "adjectives": ["fast","slow","force"],
     "prepositions": ["to"], #["to", "into", "onto", "from"],
@@ -149,14 +149,14 @@ class EnhancedDatasetGenerator:
         if random.random() < self.cfg['noise']['phonetic_confusion']:
             # candidates = [w for w in self.phonetic_map 
             #              if self._phonetic_similarity(w, word)]
-            candidates = {w: fuzz.ratio(w, word)/100. for w in self.vocabulary if self._phonetic_similarity(w, word)}
+            candidates = {w: (fuzz.ratio(w, word)/100-0.1) for w in self.vocabulary if self._phonetic_similarity(w, word)}
             candidates_list = sorted(candidates.items(), key=lambda x: x[1], reverse=True)
             candidates_list = candidates_list[:4]
             candidates = dict(candidates_list)
-            candidates[word] = 1.0
+            candidates[word] = 0.9
             if candidates:
-                
-                # confused = random.choice(candidates)
+                confused = random.choice(self.cfg["actions"] + self.cfg["object_types"])
+                candidates[confused]=1.0
                 return [candidates] + filler
                 
         return [{word: 1.0}] + filler
@@ -425,7 +425,7 @@ if __name__ == "__main__":
             json.dump(generator.cfg, file, indent=4)
 
     # save D3
-    for n in [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]:
+    for n in [0.0,0.2,0.4,0.6,0.8,1.0]:
         print(f"\n noise {n}\n")
         generator.cfg['noise']['phonetic_confusion'] = n  # Probability of phonetic-based errors
         generator.cfg['noise']['filler_words'] = 0.1  # Probability of adding filler words

@@ -14,6 +14,8 @@ import json, copy
 from llm_merger.generate_dataset import Sample
 from naive_merger.utils import cc
 import time
+
+
 def test_skill_commands():
     # these should be valid
     assert SkillCommand("stop").is_valid()
@@ -268,14 +270,17 @@ def test_on_scenarios():
     rclpy.shutdown()
 
 def test_alignment_noise(
-        noise_levels = [0.0,0.2,0.4,0.6,0.8,1.0],
+        # noise_levels = [0.0,0.2,0.4,0.6,0.8,1.0],
+        noise_levels = [0.8,1.0],
         # noise_levels = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],
         # dataset_name = "D1",
         # dataset_name = "D2",
         # dataset_name = "D3",
         # dataset_name = "D1_CFG2",
         # dataset_name = "D2_CFG2",
-        dataset_name = "D3_CFG2",
+        # dataset_name = "D3_CFG2",
+        dataset_name = "D1_CFG3",
+        # dataset_name = "D3_CFG3",
         ):
     """ Do not automate this, I think this is good like it is.
         1. Choose the Merger from commented options,
@@ -289,9 +294,9 @@ def test_alignment_noise(
     for model_name in [
             # "SultanR/SmolTulu-1.7b-Reinforced",
             # "SultanR/SmolTulu-1.7b-Instruct",
-            # "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
+            "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
             # "ibm-granite/granite-3.1-2b-instruct",
-            "ArgmaxMerger",
+            # "ArgmaxMerger",
             # "ZeroShotMerger",
             # "BeamSearchMerger",
         ]:
@@ -365,7 +370,15 @@ def test_alignment_noise(
                 print(f"time: {time.time()-t0}")
             accuracy = float(acc_sum) / len(dataset)
             result_accuracy.append(accuracy)
-
+            print()
+            print()
+            print()
+            print()
+            print(f"Accuracy: {accuracy} on noise {noise}")
+            print()
+            print()
+            print()
+            print()
         print(f"accuracy: {result_accuracy}")
 
         # np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([noise_levels, result_accuracy]))
@@ -380,24 +393,25 @@ def test_on_saved_data(
         modality = "g+v",    
         object_names = ["cup", "cube", "plate", "table", "box"], # ",  "can", , "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"
         action_names = ["pick", "push", "pass", "place", "point", "open", "close", "pour", "put", "stop", "release", "home"],
-        scene = "cube is red cube. cup is red cup. plate is blue plate. table is big green table.",
-        gt = ["pick cube", "pick_cube"],
+        scene = "cube is red cube. cup is red cup. plate is blue plate. table is big green table. box is small black box",
+        # gt = ["pick cube", "pick_cube"],
         # gt = ["pick cube", "pick_red_object"],
-        # gt = ["put cube to box", "put_cup_to_bowl"],
+        gt = ["put cube to box", "put_the_red_thing_to_the_black_thing"],
         # gt = ["put cube to box", "put_this_to_there"],
-
+        
     ):
     true_sentence, folder = gt
     rclpy.init()
     CONFIG = CONFIG3
-    interpret_format="deterministic"
+    # interpret_format="deterministic"
     # interpret_format="probabilistic"
-    # interpret_format="alternatives"
+    interpret_format="alternatives"
+    model_accuracies = []
     for model_name in [
             # "SultanR/SmolTulu-1.7b-Reinforced",
-            # "SultanR/SmolTulu-1.7b-Instruct",
-            # "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
-            # "ibm-granite/granite-3.1-2b-instruct",
+            "SultanR/SmolTulu-1.7b-Instruct",
+            "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
+            "ibm-granite/granite-3.1-2b-instruct",
             "ArgmaxMerger",
             # "ZeroShotMerger",
             # "BeamSearchMerger",
@@ -418,15 +432,19 @@ def test_on_saved_data(
             save = np.load(f"{llm_merger.path}/saved_inputs/{folder}/save_{j}.npz", allow_pickle=True)
             j+=1
 
-            
-            voicecommand, hricommand = save["voice_command"], save["gesture_command"].item()
-            
+            try:
+                voicecommand, hricommand = save["voice_command"], save["gesture_command"].item()
+            except ValueError:
+                continue
+
+
             if interpret_format == "deterministic":
                 gesture_stamped = hricommand.get_target_timestamped_list()
-                voice_stamped = voicecommand
                 ret = []
                 for t,w in voicecommand:
-                    ret.append([t,sorted(w])
+                    maxv = [itm[0] for itm in sorted(w.items(), key=lambda x: x[1], reverse=True)][0]
+                    ret.append([t,maxv])
+                voice_stamped = ret
             elif interpret_format in ["probabilistic", "alternatives"]:
                 gesture_stamped = hricommand.get_target_timestamped_probabilistic()
                 voice_stamped = voicecommand
@@ -484,13 +502,15 @@ def test_on_saved_data(
             #         json.dump(data, file, indent=4)
             
         accuracy = float(acc_sum) / j
-
+        model_accuracies.append([model_name, interpret_format, accuracy])
         print("final acc", accuracy)
         # np.save(f"{llm_merger.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([accuracy]))
         if model_name != "ArgmaxMerger":
             merger.hri.delete()
         # from llm_merger.plotter import save_plot
         # save_plot()
+    print("model accuracies:")
+    print(model_accuracies)
     rclpy.shutdown()
 
  

@@ -2,7 +2,7 @@ from copy import deepcopy
 # THESE ARE USED TO DISCARD THINGS FROM SkillCommand 
 COLORS = ["green", "blue", "red", "pink", "yellow", "black", "orange"]
 RELATIONS = ["to", "into", "onto", "from"]
-
+from naive_merger.utils import cc
 class SkillCommand():
     def __init__(self, command: str = "", predicted: str = "", CONFIG={}):
         self.command = command
@@ -66,6 +66,10 @@ class SkillCommand():
         return self.command
 
     def __eq__(self, other):
+        try:
+            print(f"{cc.H}{self.command} != {other.command}{cc.E}")
+        except AttributeError:
+            return False
         if self.command == other.command:
             return True
         else:
@@ -93,17 +97,21 @@ class SkillCommand():
             if len(response) == 2:
                 response = response[-1]
             else:
-                if "action:" in response[-2]:
-                    response = response[-2]
-                elif "action:" in response[-3]:
-                        response = response[-3]
-                elif "action:" in response[-4]:
-                        response = response[-4]
-                elif "action:" in response[-5]:
-                        response = response[-5]
-                elif "action:" in response[-6]:
-                        response = response[-6]
-
+                try:
+                    if "action:" in response[-2]:
+                        response = response[-2]
+                    elif "action:" in response[-3]:
+                            response = response[-3]
+                    elif "action:" in response[-4]:
+                            response = response[-4]
+                    elif "action:" in response[-5]:
+                            response = response[-5]
+                    elif "action:" in response[-6]:
+                            response = response[-6]
+                    else:
+                        return cls("", predicted, CONFIG)
+                except IndexError: 
+                    return cls("", predicted, CONFIG)
 
         elif "**action:" in response:
             print("reason formating 4")
@@ -128,7 +136,7 @@ class SkillCommand():
             if k is None: continue
             v = v.split(" ")[-1]
 
-            if v != "none" and v != "unknown" and v != "none specified":
+            if v != "none" and v != "unknown" and v != "none specified" and v != "**none**":
                 if r[k] != "": # order from model is: object, object2 right after each other; color, color2
                     r[k+"2"] = v
                 else:
