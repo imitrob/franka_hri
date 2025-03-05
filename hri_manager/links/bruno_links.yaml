@@ -42,12 +42,7 @@ links:
     user: bruno
     action_template: pick
     action_gestures:
-    - [five, swipe_left]
-  link2:
-    user: bruno
-    action_template: push
-    action_gestures:
-    - [grab, no_moving]
+    - [grab, swipe_up]
   link3:
     user: bruno
     action_template: pass
@@ -55,6 +50,6 @@ links:
     - [pinch, swipe_down]
   link4:
     user: bruno
-    action_template: place
+    action_template: put
     action_gestures:
-    - [grab, swipe_up]
+    - [five, swipe_left]

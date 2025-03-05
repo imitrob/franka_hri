@@ -19,6 +19,9 @@ from llm_merger.utils import print_modalities
 from transformers import pipeline
 
 RECEIVE_CHECK_INTERVAL = 1.0 # [s]
+from llm_merger.role_setup import get_role_description
+
+from llm_merger.generate_dataset import CONFIG3
 
 class HRIMerger():
     def __init__(self,
@@ -37,6 +40,7 @@ class HRIMerger():
             interpret_format (str): "deterministic" or "probabilistic" interpret format
         """   
         self.interpret_format = interpret_format
+        self.dry_run = dry_run
         if dry_run: # No robot
             self.hri = HCI(
                 name_user = name_user,
@@ -62,45 +66,36 @@ class HRIMerger():
     def name(self):
         return self.model_name.split("/")[-1]
 
-    def spin(self, role_description):
+    def spin(self): #, CONFIG, role_description):
         while rclpy.ok():
             time.sleep(RECEIVE_CHECK_INTERVAL)
             if len(self.record_queue) > 0:
                 record_stamped_file_name = self.record_queue.pop()
-                voicecommand = self.hri.stt(record_stamped_file_name)
+                if self.interpret_format == "deterministic":
+                    voicecommand = self.hri.stt.transcribe_to_stamped(file=record_stamped_file_name['file'], stamp=record_stamped_file_name['timestamp'])
+                elif self.interpret_format in ["probabilistic", "alternatives"]:
+                    voicecommand = self.hri.stt.transcribe_to_probstamped(file=record_stamped_file_name['file'], stamp=record_stamped_file_name['timestamp'])
+                else: raise Exception
 
-                if len(self.gestures_queue) > 1:
-                    self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
-                if len(self.gestures_queue) > 0:
-                    hricommand = self.gestures_queue.pop()
-                    self.extract_merge_and_play(voicecommand, hricommand, role_description)
-                else:
-                    self.extract_merge_and_play(voicecommand, [], role_description)
-
-                self.record_queue = []
-                self.gestures_queue = []
-
-    def spin_save(self):
-        while rclpy.ok():
-            time.sleep(RECEIVE_CHECK_INTERVAL)
-            if len(self.record_queue) > 0:
-                record_stamped_file_name = self.record_queue.pop()
-                voicecommand = self.hri.stt.stamped_transcribe(record_stamped_file_name)
-
+                input("?")
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
                 if len(self.gestures_queue) > 0:
                     hricommand = self.gestures_queue.pop()
                     print(hricommand)
                     print(voicecommand)
-                    self.save_command(voicecommand, hricommand)
+                    if self.dry_run:
+                        self.save_command(voicecommand, hricommand)
+                    else:
+                        self.extract_merge_and_play(voicecommand, hricommand) #, CONFIG=CONFIG, role_description=role_description)
                 else:
-                    self.save_command(voicecommand, [])
-                
+                    if self.dry_run:
+                        self.save_command(voicecommand, [])
+                    else:
+                        self.extract_merge_and_play(voicecommand, None) #, CONFIG=CONFIG, role_description=role_description)
+
                 self.record_queue = []
                 self.gestures_queue = []
-
-
 
     def receive_voice_record(self, msg):
         msg_dict = json.loads(str(msg.data))
@@ -112,15 +107,20 @@ class HRIMerger():
         hricommand = HriCommand.from_ros(msg)
         self.gestures_queue.append(hricommand)
 
-    def extract_merge_and_play(self, hricommand, voicecommand, *args, **kwargs):
+    def extract_merge_and_play(self, voicecommand, hricommand): # , CONFIG,  *args, **kwargs):
+        print("extract merge and play")
         # extract
         if self.interpret_format == "deterministic":
             """ gesture_stamped: [:,0] - timestamps, [:,1] - words 
             voice_stamped:   [:,0] - timestamps, [:,1] - words
             """      
-            gesture_stamped = hricommand.get_target_timestamped_list()
-            voice_stamped = voicecommand
-            
+            if hricommand is not None:
+                gesture_stamped = hricommand.get_target_timestamped_list()
+                voice_stamped = voicecommand
+            else: 
+                gesture_stamped = []
+                voice_stamped = voicecommand
+
         elif self.interpret_format == "probabilistic":
             """ both gesture_stamped and voice_stamped in format:
             [ # time,  word  : probs, ...
@@ -128,14 +128,23 @@ class HRIMerger():
                 [0.1, {"up": 0.96, "lap": 0.1}],
             ]
             """
-            gesture_stamped = hricommand.get_target_timestamped_probabilistic()
-            voice_stamped = voicecommand
-
+            if hricommand is not None:
+                gesture_stamped = hricommand.get_target_timestamped_probabilistic()
+                voice_stamped = voicecommand
+            else: 
+                gesture_stamped = []
+                voice_stamped = voicecommand
         # merge
-        target_action, target_object = self.merge(gesture_stamped, voice_stamped, *args, **kwargs)
+        role_description = get_role_description(A=CONFIG3["actions"], O=["bowl","box","cube", "cup"], 
+            S="cube is small red cube. cup is medium red cup. bowl is red bowl. box is small black box"
+        )
+        print(role_description)
+        skillcommand = self.merge(gesture_stamped, voice_stamped, CONFIG=CONFIG3, role_description=role_description) #, *args, **kwargs)
         
-        # play
-        self.hri.play_skill(target_action, target_object)
+        print(skillcommand)
+
+        self.hri.play_skillcommand(skillcommand)
+        # self.hri.play_skill(target_action, target_object)
 
 
     def merge(self, gesture_stamped, voice_stamped, CONFIG, *args, **kwargs):
@@ -152,7 +161,7 @@ class HRIMerger():
         
         if self.interpret_format == "deterministic":
             final_sentence = " ".join(words[words!=None])
-            self.hri.speak(f"Merged sentence is: {final_sentence}")
+            self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
             # Run second round on object similarity
             # predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description, *args, **kwargs)
@@ -165,7 +174,7 @@ class HRIMerger():
             final_sentence.insert(0, {" ": 1.0})
             final_sentence.append({" ": 1.0})
             final_sentence.append({" ": 1.0})
-            self.hri.speak(f"Merged sentence is: {final_sentence}")
+            self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
             predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, *args, **kwargs)
         elif self.interpret_format == "alternatives":
             # ans = beam_search(words)
@@ -199,16 +208,18 @@ class HRIMerger():
                             final_sentence += f'- "{option}" is {grading[n]}\n'
                         # if True:
 
-            self.hri.speak(f"Merged sentence is: {final_sentence}")
+            self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
             
         print(f"{cc.W}LM says: {predicted} {cc.E}")
+        print("CONFIG IS ", CONFIG)
         return SkillCommand.from_predicted(predicted, CONFIG=CONFIG)
 
         # target_action, target_object = self.hri.map_instruction_words(predicted) # tunnel down to commands
 
 
     def save_command(self, voice_command, gesture_command):
+        print("save command")
         i = 0
         while Path(f"{llm_merger.path}/saved_inputs/put_the_red_thing_to_the_black_thing/save_{i}.npz").is_file():
             i+=1
@@ -342,14 +353,14 @@ class BeamSearchMerger():
 def main():
     parser = argparse.ArgumentParser(description="My ROS 2 Node")
     parser.add_argument('--name_user', type=str, help='The user name', default="casper")
-    parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="probabilistic")
+    parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="deterministic")
     # parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="probabilistic")
     # parser.add_argument('--name_model', type=str, help='The user name', default="ArgmaxMerger")
-    # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
-    # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
-    parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Reinforced")
-    parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=True)
-    parser.add_argument('--role_version', type=str, help='Role description', default="v1")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Instruct")
+    parser.add_argument('--name_model', type=str, help='The user name', default="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="ibm-granite/granite-3.1-2b-instruct")
+    parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=False)
+    # parser.add_argument('--role_version', type=str, help='Role description', default="v4")
     parser.add_argument('--temperature', type=float, help='temperature, 0.0 is deterministic ', default=0.0)
     parser.add_argument('--top_p', type=float, help='top p', default=1.0)
     parser.add_argument('--repetition_penalty', type=float, help='', default=1.1)
@@ -361,11 +372,11 @@ def main():
     if args.name_model == "ArgmaxMerger":
         merger = ArgmaxMerger(interpret_format=args.interpret_format)
     else:
-        merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format)
+        merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format, dry_run=args.dry_run)
 
     print(merger.hri.print_user_preferences())
-    # merger.spin(args.role_version)
-    merger.spin_save()
+    merger.spin()#CONFIG3), args.role_version)
+    
 
 if __name__ == "__main__":
     main()

@@ -7,6 +7,8 @@ from skills_manager.skill import Skill
 from lfd_msgs.srv import SetTemplate
 from std_srvs.srv import Trigger
 
+from llm_merger.skill_command import SkillCommand
+from naive_merger.utils import cc
 
 class HRI(HCI, Feedback_for_HRI, LfD):
     def __init__(self,
@@ -24,7 +26,30 @@ class HRI(HCI, Feedback_for_HRI, LfD):
         super(HRI, self).__init__()
         self.start() # Starts robotic controller
 
-    def play_skill(self, name_skill: str, name_template: str, skill_parameter: float = None, simplify=True):
+    def play_skillcommand(self, skillcommand: SkillCommand):
+        
+        print(f"{cc.W}Playing skill command: {skillcommand}{cc.E}")
+        
+        if skillcommand.target_action not in ["pick", "put"] or skillcommand.target_object not in ["", "cube", None] or skillcommand.target_storage not in ["", "box", None]: 
+            self.speak(f"Check skill command please it is not valid. {skillcommand.target_action}, {skillcommand.target_object}, {skillcommand.target_storage}")
+            
+
+        # if not skillcommand.is_valid(): 
+        #     self.speak("Skill Command is Not valid, returning!")
+        #     return
+        
+        if skillcommand.target_action in skillcommand.CONFIG["zero_object_actions"]:
+            self.play_skill(name_skill="tfm_"+skillcommand.target_action, simplify=False)
+
+        if skillcommand.target_action in skillcommand.CONFIG["single_object_actions"]:
+            self.play_skill(name_skill="tfm_"+skillcommand.target_action+"_"+skillcommand.target_object, name_template="tfm_"+skillcommand.target_object, simplify=False)
+
+        if skillcommand.target_action in skillcommand.CONFIG["double_object_actions"]:
+            self.play_skill(name_skill="tfm_"+skillcommand.target_action+"1_"+skillcommand.target_object, name_template="tfm_"+skillcommand.target_object, simplify=False)
+            self.play_skill(name_skill="tfm_"+skillcommand.target_action+"2_"+skillcommand.target_storage, name_template="tfm_"+skillcommand.target_storage, simplify=False)
+
+
+    def play_skill(self, name_skill: str, name_template: str= "", skill_parameter: float = None, simplify=True):
         """ When simplify==True, target_object == target_actopm
         """
         if name_skill == "":

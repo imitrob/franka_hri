@@ -53,6 +53,9 @@ class SkillCommand():
             return None
 
     @property
+    def target_storage(self):
+        return self.target_object2
+    @property
     def target_object2(self):
         try:
             if self.has_action_parameter():
@@ -143,11 +146,11 @@ class SkillCommand():
                     r[k] = v
 
         if r['target_action'] in CONFIG["zero_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']}".strip(), predicted)
+            return cls(f"{r['property']} {r['target_action']}".strip(), predicted, CONFIG)
         elif r['target_action'] in CONFIG["single_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted)
+            return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted, CONFIG)
         elif r['target_action'] in CONFIG["double_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted)
+            return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted, CONFIG)
         else: 
             print("No known action", r['target_action'], " not in ", CONFIG["actions"])
             return cls("", predicted, CONFIG)
@@ -191,26 +194,6 @@ class SkillCommand():
         else:
             print(not_valid)
             return False
-
-    def play(self):
-        if not self.is_valid(): 
-            print("Not valid")
-            return
-        
-        if self.target_action in self.CONFIG["zero_object_actions"]:
-            print(f"Executing: {self}")
-            
-        if self.target_action in self.CONFIG["single_object_actions"]:
-            print(f"Executing: {self}")
-            
-        if self.target_action in self.CONFIG["double_object_actions"]:
-            print(f"Executing: {self}")
-
-
-
-
-    
-
 
 def remove_types(str):
     if "action: " in str.strip():

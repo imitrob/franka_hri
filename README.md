@@ -89,9 +89,9 @@ Usage:
 
 Parameters:
 1. Set of Gestures: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
-  - You get set of gesture poses and gesture swipes (const)
-  - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length` (calibration)
-  - Ignored gestures that won't trigger execution: `gestures_processor.py:GestureSentence.ignored_gestures` (const)
+  - You get set of pose-gestures and gesture swipes (use default set)
+  - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length` (should be user-calibrated)
+  - Ignored gestures that won't trigger execution: `gestures_processor.py:GestureSentence.ignored_gestures` (think about what you need)
 2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template. (const)
 3. Scene objects setup. Choore or define scene properties: `scenes/scene_1.yaml` and change `scene_getter.scene_makers.mocked_scene_maker.py:SCENE_FILE` (const scene set)
 4. User preferences: `hri_manager/links/<username>_links.yaml` (var)

@@ -3,7 +3,6 @@ from pathlib import Path
 from natural_language_processing.text_to_speech.kokoro_model import Chatterbox
 from natural_language_processing.speech_to_text.audio_recorder import AudioRecorder
 from natural_language_processing.speech_to_text.whisper_model import SpeechToTextModel
-from natural_language_processing.speech_to_text.whisper_model import SpeechToTextModel2 as ProbabilisticSpeechToTextModel
 # from natural_language_processing.speech_to_text.whisper_probabilistic_model import SpeechToTextModel as ProbabilisticSpeechToTextModel
 # from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
 from llm_merger.models.llm import SentenceProcessor
@@ -53,9 +52,9 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         if self.stt_type == "deterministic":
             self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
         elif self.stt_type == "probabilistic":
-            self.stt = ProbabilisticSpeechToTextModel(device="cuda")
+            self.stt = SpeechToTextModel(device="cuda")
         elif self.stt_type == "alternatives":
-            self.stt = ProbabilisticSpeechToTextModel(device="cuda")
+            self.stt = SpeechToTextModel(device="cuda")
         else: raise Exception()
 
         if self.tts_enabled:

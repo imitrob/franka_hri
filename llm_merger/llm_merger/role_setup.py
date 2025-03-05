@@ -134,17 +134,17 @@ Valid objects: <insert_objects>
 Example 1: Simple Action
 **User:** "pick up cup1 cup."  
 **Assistant:**  
-`action: pick, object1: cup1, object2: none, property: none, relationship: none`
+`action: pick, object1: cup, object2: none, property: none, relationship: none`
 
 Example 2: Action with Property
 **User:** "slow pour cup cup1 to bowl1 bowl."  
 **Assistant:**  
-`action: pour, object1: cup1, object2: bowl1, property: slow, relationship: to`
+`action: pour, object1: cup, object2: bowl, property: slow, relationship: to`
 
 Example 3: Attribute-Based Object
 **User:** "pick up the wide blue object."  
 **Assistant:**  
-`action: pick, object1: cube1, object2: none, property: none, relationship: none`
+`action: pick, object1: cube, object2: none, property: none, relationship: none`
 
 Now process this input:
 User:
