@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 from llm_merger.utils import print_modalities
 from transformers import pipeline
+from llm_merger.models.llm import SentenceProcessor
 
 RECEIVE_CHECK_INTERVAL = 1.0 # [s]
 from llm_merger.role_setup import get_role_description
@@ -77,7 +78,11 @@ class HRIMerger():
                     voicecommand = self.hri.stt.transcribe_to_probstamped(file=record_stamped_file_name['file'], stamp=record_stamped_file_name['timestamp'])
                 else: raise Exception
 
-                input("?")
+                a = input("Press enter to merge and execute, press 'n' to try again")
+                if "n" in a:
+                    self.record_queue = []
+                    self.gestures_queue = []
+                    continue
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
                 if len(self.gestures_queue) > 0:
@@ -158,6 +163,8 @@ class HRIMerger():
         print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
         
         words = np.array(sorted_sentence)[:,1]
+        
+        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name)
         
         if self.interpret_format == "deterministic":
             final_sentence = " ".join(words[words!=None])
@@ -374,7 +381,7 @@ def main():
     else:
         merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format, dry_run=args.dry_run)
 
-    print(merger.hri.print_user_preferences())
+    print(f"{cc.H}Ready!{cc.E}")
     merger.spin()#CONFIG3), args.role_version)
     
 

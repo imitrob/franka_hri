@@ -159,7 +159,7 @@ You are an assistant that analyzes user requests to guess what to do. Follow the
 3. Guess the object (from: <insert_objects>) you want to interact with that action. More object instances means higher it's chance.
 4. Check if there is a second object (from: <insert_objects>) that may be required by the action.
 5. Find a property from: fast,slow,force. 
-5. Explain your reasoning, check the valid actions and objects. 
+5. ALWAYS explain your reasoning, check the valid actions and objects. 
 6. Finalize ALWAYS with:  
    `action: X, object1: Y, object2: Z, property: P, relationship: to`.
 

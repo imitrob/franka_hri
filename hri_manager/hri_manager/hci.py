@@ -68,13 +68,6 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
-        
-        self.sentence_processor = SentenceProcessor(model_name=self.nlp_model_name)
-        print(f"{cc.H}Initialization Done{cc.E}: VRAM memory left: {get_gpu_memory()}", flush=True)
-        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
-        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
-
-
         self.gestures = GestureSentenceGetter(self)
 
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
