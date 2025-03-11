@@ -7,7 +7,7 @@ from skills_manager.skill import Skill
 from lfd_msgs.srv import SetTemplate
 from std_srvs.srv import Trigger
 
-from llm_merger.skill_command import SkillCommand
+from multi_modal_reasoning.skill_command import SkillCommand
 from naive_merger.utils import cc
 
 class HRI(HCI, Feedback_for_HRI, LfD):
