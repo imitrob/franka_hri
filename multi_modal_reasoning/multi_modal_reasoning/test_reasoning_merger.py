@@ -14,7 +14,7 @@ import json, copy
 from multi_modal_reasoning.generate_dataset import Sample
 from naive_merger.utils import cc
 import time
-
+from tqdm import tqdm
 
 def test_skill_commands():
     # these should be valid
@@ -42,23 +42,35 @@ def test_skill_commands():
 """ When I install this package, I always try to run this function """
 def test_just_to_see_if_works():
     rclpy.init()
-    merger = ReasoningMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced")
+    # merger = ReasoningMerger(name_user="casper", model_name="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
+    # merger = ReasoningMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Instruct")
+    # merger = ReasoningMerger(name_user="casper", model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
+    merger = ReasoningMerger(name_user="casper", model_name="ibm-granite/granite-3.1-2b-instruct")
+    S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl."
     skill_command = merger.merge( 
         voice_stamped = [
-            [0.0, "Pick"],
-            [0.1, "Green"],
-            [0.4, "Cup"],
+            [0.0, "pick"],
+            [0.1, "green"],
+            [0.4, "cup"],
         ],
         gesture_stamped = [
             [0.4, "cup1"],
         ],
-        role_description=get_role_description(A=["Pick", "Push", "Pour"], O=["cup1", "Drawer", "Bowl"]),
-        cfg=CONFIG3,
+        role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S),
+        command_constraints=CONFIG3,
         max_new_tokens = 1000,
         temperature = 0.0,
         top_p = 1.0,
         repetition_penalty = 1.1,
+        quantization = 4,
     )
+    merger.save_log("pick cup1", skill_command, [
+            [0.0, "pick"],
+            [0.1, "green"],
+            [0.4, "cup"],
+        ], [
+            [0.4, "cup1"],
+        ], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, CONFIG3, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S))
     assert skill_command == SkillCommand("pick cup1"), f"{skill_command} != 'pick cup1'"
     merger.hri.delete()
     rclpy.shutdown()
@@ -66,9 +78,12 @@ def test_just_to_see_if_works():
 
 def test_just_probabilistic():
     rclpy.init()
-    merger = ReasoningMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Reinforced", interpret_format="probabilistic")
+    merger = ReasoningMerger(name_user="casper", model_name="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", interpret_format="probabilistic")
+    # merger = ReasoningMerger(name_user="casper", model_name="SultanR/SmolTulu-1.7b-Instruct", interpret_format="probabilistic")
+    # merger = ReasoningMerger(name_user="casper", model_name="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", interpret_format="probabilistic")
+    # merger = ReasoningMerger(name_user="casper", model_name="ibm-granite/granite-3.1-2b-instruct", interpret_format="probabilistic")
 
-    S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl."
+    S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl. box is box."
     skill_command = merger.merge( 
         voice_stamped = [
             [0.0, {"pick": 1.0}],
@@ -83,6 +98,8 @@ def test_just_probabilistic():
             O=["cup1", "box", "bowl1"],
             S=S,
         ),
+        command_constraints=CONFIG3,
+        quantization = 4,
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -106,7 +123,8 @@ def test_just_alternatives():
             A=CONFIG3["actions"], 
             O=["cup1", "container1", "bowl1"],
             S=S, 
-        ), CONFIG=CONFIG3
+        ), 
+        command_constraints=CONFIG3
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -133,7 +151,8 @@ def test_just_alternatives2():
         role_description=get_role_description(
             A=CONFIG3["actions"], 
             O=["cup1", "box", "plate1"]
-        ), CONFIG=CONFIG3
+        ), 
+        command_constraints=CONFIG3
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -156,7 +175,8 @@ def test_just_alternatives3():
         role_description=get_role_description(
             A=CONFIG3["actions"], 
             O=["cup1", "box", "plate1"]
-        ), CONFIG=CONFIG3
+        ), 
+        command_constraints=CONFIG3
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -240,119 +260,78 @@ def test_unsuccessful():
 
 def test_alignment_noise(
         noise_levels = [0.0,0.2,0.4,0.6,0.8,1.0],
-        # dataset_name = "D1",
-        # dataset_name = "D2",
-        # dataset_name = "D3",
-        # dataset_name = "D1_CFG2",
-        # dataset_name = "D2_CFG2",
-        # dataset_name = "D3_CFG2",
-        dataset_name = "D1_CFG3",
-        # dataset_name = "D3_CFG3",
+        # dataset_name = "D1_CFG3",
+        dataset_name = "D3_CFG3",
+        # interpret_format="deterministic",
+        # interpret_format="probabilistic",
+        interpret_format="alternatives",
+        cfg = CONFIG3,
         ):
     """ Do not automate this, I think this is good like it is.
-        1. Choose the Merger from commented options,
-        2. Choose dataset D1 or D2
     """
     rclpy.init()
+    try: # Ctrl+C to quit and see the results
+        for model_name in [
+                # "SultanR/SmolTulu-1.7b-Instruct",
+                "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
+                # "ibm-granite/granite-3.1-2b-instruct",
+                # "ArgmaxMerger",
+            ]:
+            if model_name == "ArgmaxMerger":
+                merger = ArgmaxMerger(interpret_format=interpret_format)
+            elif model_name == "ZeroShotMerger":
+                merger = ZeroShotMerger(interpret_format=interpret_format)
+            elif model_name == "BeamSearchMerger":
+                merger = BeamSearchMerger(interpret_format=interpret_format)
+            else:
+                merger = ReasoningMerger(name_user="casper", model_name=model_name, interpret_format=interpret_format, tts_enabled=False)
+            result_accuracy = []
+            for noise in tqdm(noise_levels, desc="Noise levels:"):
+                acc_sum = 0
+                dataset = np.load(f"{multi_modal_reasoning.path}/saved_datasets/{dataset_name}_n{noise}.npy", allow_pickle=True)
+                n=-1
+                for sample in tqdm(dataset, desc=f"Sample (noise={noise}):"):
+                    n+=1
+                    voice_stamped, gesture_stamped, scene, object_names, true_sentence, CONFIG = sample.export(interpret_format)
+                    
+                    role_description = get_role_description(A=cfg["actions"], O=object_names, S=scene)
+                    
+                    max_new_tokens = 1000
+                    temperature = 0.0
+                    top_p = 1.0
+                    repetition_penalty = 1.1
+                    skill_command = merger.merge( 
+                        voice_stamped=voice_stamped,
+                        gesture_stamped=gesture_stamped, 
+                        role_description=role_description,
+                        max_new_tokens = max_new_tokens,
+                        temperature = temperature,
+                        top_p = top_p,
+                        repetition_penalty = repetition_penalty,
+                        command_constraints = cfg,
+                        object_names = object_names,
+                        quantization=4
+                    )
+                    if not (SkillCommand(true_sentence) == skill_command):
+                        merger.save_log(true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names,
+                            max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description)
+                    if SkillCommand(true_sentence) == skill_command:
+                        acc_sum += 1
+                        print(f"{cc.W}SUCCESS{cc.E}")
+                    else:
+                        print(f"{cc.F}WRONG{cc.E}")
+                    
+                    if model_name != "ArgmaxMerger":
+                        merger.hri.delete()
+                accuracy = float(acc_sum) / len(dataset)
+                result_accuracy.append(accuracy)
 
-    interpret_format="deterministic"
-    # interpret_format="probabilistic"
-    # interpret_format="alternatives"
-    for model_name in [
-            # "SultanR/SmolTulu-1.7b-Reinforced",
-            # "SultanR/SmolTulu-1.7b-Instruct",
-            "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",
-            # "ibm-granite/granite-3.1-2b-instruct",
-            # "ArgmaxMerger",
-            # "ZeroShotMerger",
-            # "BeamSearchMerger",
-        ]:
-        if model_name == "ArgmaxMerger":
-            merger = ArgmaxMerger(interpret_format=interpret_format)
-        elif model_name == "ZeroShotMerger":
-            merger = ZeroShotMerger(interpret_format=interpret_format)
-        elif model_name == "BeamSearchMerger":
-            merger = BeamSearchMerger(interpret_format=interpret_format)
-        else:
-            merger = ReasoningMerger(name_user="casper", model_name=model_name, interpret_format=interpret_format, tts_enabled=False)
-        result_accuracy = []
-        for noise in noise_levels:
-            acc_sum = 0
-            dataset = np.load(f"{multi_modal_reasoning.path}/saved_datasets/{dataset_name}_n{noise}.npy", allow_pickle=True)
-            for n,sample in enumerate(dataset):
-                print("SAMPLE: ", n, " noise: ", noise)
-                t0 = time.time()
-                voice_stamped, gesture_stamped, scene, object_names, true_sentence, CONFIG = sample.export(interpret_format)
-                
-                role_description = get_role_description(A=CONFIG["actions"], O=object_names, S=scene)
-                print(role_description)
-                
-                max_new_tokens = 1000
-                temperature = 0.0
-                top_p = 1.0
-                repetition_penalty = 1.1
-                skill_command = merger.merge( 
-                    voice_stamped=voice_stamped,
-                    gesture_stamped=gesture_stamped, 
-                    role_description=role_description,
-                    max_new_tokens = max_new_tokens,
-                    temperature = temperature,
-                    top_p = top_p,
-                    repetition_penalty = repetition_penalty,
-                    CONFIG = CONFIG,
-                    object_names = object_names,
-                )
-                if SkillCommand(true_sentence) == skill_command:
-                    acc_sum += 1
-                    print(f"{cc.W}SUCCESS{cc.E}")
-                    successful = True
-                else:
-                    print(f"{cc.F}WRONG{cc.E}")
-                    successful = False
-                
-                # here save
-                data = {
-                    "successful": successful,
-                    "true_sentence": true_sentence, 
-                    "predicted_sentence": skill_command.command,
-                    "predicted": skill_command.predicted,
-                    "model_name": merger.name(),
-                    "voice_stamped": voice_stamped,
-                    "gesture_stamped": gesture_stamped,
-                    "scene": scene, 
-                    "object_names": object_names, 
-                    "max_new_tokens": max_new_tokens, 
-                    "temperature": temperature, 
-                    "top_p": top_p, 
-                    "repetition_penalty": repetition_penalty, 
-                    "CONFIG": CONFIG, 
-                    "role_description": role_description, 
-                }
-                # if not successful:
-                #     i = 0
-                #     while Path(f"{multi_modal_reasoning.path}/saved_samples/save_{i}.json").is_file():
-                #         i+=1
-                #     with open(f"{multi_modal_reasoning.path}/saved_samples/save_{i}.json", "w") as file:
-                #         json.dump(data, file, indent=4)
-                print(f"time: {time.time()-t0}")
-            accuracy = float(acc_sum) / len(dataset)
-            result_accuracy.append(accuracy)
-            print()
-            print()
-            print()
-            print()
-            print(f"Accuracy: {accuracy} on noise {noise}")
-            print()
-            print()
-            print()
-            print()
-        print(f"accuracy: {result_accuracy}")
+                print(f"Accuracy: {accuracy} on noise {noise}")
 
-        # np.save(f"{multi_modal_reasoning.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([noise_levels, result_accuracy]))
-        if model_name != "ArgmaxMerger":
-            merger.hri.delete()
-        # from multi_modal_reasoning.plotter import save_plot
-        # save_plot()
+            print(f"accuracy: {result_accuracy}")
+    except KeyboardInterrupt:
+        print("interrupted")
+        print("result_accuracy: ", result_accuracy)
     rclpy.shutdown()
 
 
@@ -369,7 +348,7 @@ def test_on_saved_data(
     ):
     true_sentence, folder = gt
     rclpy.init()
-    CONFIG = CONFIG3
+    cfg = CONFIG3
     # interpret_format="deterministic"
     # interpret_format="probabilistic"
     interpret_format="alternatives"
@@ -432,50 +411,24 @@ def test_on_saved_data(
                 temperature = temperature,
                 top_p = top_p,
                 repetition_penalty = repetition_penalty,
-                CONFIG = CONFIG,
+                command_constraints = cfg,
                 object_names = object_names,
             )
+            if not (SkillCommand(true_sentence) == skill_command):
+                merger.save_log(true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names,
+                    max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description)
             if SkillCommand(true_sentence) == skill_command:
                 acc_sum += 1
                 print(f"{cc.W}SUCCESS{cc.E}")
-                successful = True
             else:
                 print(f"{cc.F}WRONG{cc.E}")
-                successful = False
             
-            # here save
-            data = {
-                "successful": successful,
-                "true_sentence": true_sentence, 
-                "predicted_sentence": skill_command.command,
-                "predicted": skill_command.predicted,
-                "model_name": merger.name(),
-                "voice_stamped": [list(v) for v in voice_stamped],
-                "gesture_stamped": [list(v) for v in gesture_stamped],
-                "scene": scene, 
-                "object_names": object_names, 
-                "max_new_tokens": max_new_tokens, 
-                "temperature": temperature, 
-                "top_p": top_p, 
-                "repetition_penalty": repetition_penalty, 
-                "CONFIG": CONFIG, 
-                "role_description": role_description, 
-            }
-            # if not successful:
-            #     i = 0
-            #     while Path(f"{multi_modal_reasoning.path}/saved_samples/save_{i}.json").is_file():
-            #         i+=1
-            #     with open(f"{multi_modal_reasoning.path}/saved_samples/save_{i}.json", "w") as file:
-            #         json.dump(data, file, indent=4)
-            
+
         accuracy = float(acc_sum) / j
         model_accuracies.append([model_name, interpret_format, accuracy])
         print("final acc", accuracy)
-        # np.save(f"{multi_modal_reasoning.path}/saved_results/results_{merger.name()}_{interpret_format}", np.array([accuracy]))
         if model_name != "ArgmaxMerger":
             merger.hri.delete()
-        # from multi_modal_reasoning.plotter import save_plot
-        # save_plot()
     print("model accuracies:")
     print(model_accuracies)
     rclpy.shutdown()
@@ -494,5 +447,5 @@ if __name__ == "__main__":
     # test_lm()
     # test_unsuccessful()
 
-    # test_alignment_noise()
-    test_on_saved_data()
+    test_alignment_noise()
+    # test_on_saved_data()

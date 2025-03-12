@@ -4,16 +4,16 @@ COLORS = ["green", "blue", "red", "pink", "yellow", "black", "orange"]
 RELATIONS = ["to", "into", "onto", "from"]
 from naive_merger.utils import cc
 class SkillCommand():
-    def __init__(self, command: str = "", predicted: str = "", CONFIG={}):
+    def __init__(self, command: str = "", predicted: str = "", command_constraints={}):
         self.command = command
         self.predicted = predicted
-        self.CONFIG=CONFIG
+        self.command_constraints=command_constraints
 
     def has_action_parameter(self):
         l = self.command.split(" ")
-        if l[0] in self.CONFIG["actions"]: 
+        if l[0] in self.command_constraints["actions"]: 
             return False
-        elif l[1] in self.CONFIG["actions"]:
+        elif l[1] in self.command_constraints["actions"]:
             return True
         else:
             raise Exception()
@@ -70,32 +70,30 @@ class SkillCommand():
 
     def __eq__(self, other):
         try:
-            print(f"{cc.H}{self.command} != {other.command}{cc.E}")
+            if self.command == other.command:
+                print(f"{cc.H}{self.command} == {other.command}{cc.E}")
+                return True
+            else:
+                print(f"{cc.F}{self.command} != {other.command}{cc.E}")
+                return False
         except AttributeError:
             return False
-        if self.command == other.command:
-            return True
-        else:
-            return False
-        
+
     @classmethod
-    def from_predicted(cls, response, CONFIG):
+    def from_predicted(cls, response, command_constraints):
         predicted = deepcopy(response)
         response = response.lower()
         """ response is raw string output from LLM, all format correction is here """
         if "```plaintext" in response:
-            print("reason formating 1")
             response = response.split("```")
             response = response[-2]
             response = response.replace("\n", "")
             response = response.strip()
             response = response.split("plaintext")[-1]
         if "```" in response:
-            print("reason formating 2")
             response = response.split("```")
             response = response[-2]
         elif "`" in response:
-            print("reason formating 3")
             response = response.split("`")
             if len(response) == 2:
                 response = response[-1]
@@ -112,18 +110,24 @@ class SkillCommand():
                     elif "action:" in response[-6]:
                             response = response[-6]
                     else:
-                        return cls("", predicted, CONFIG)
+                        return cls("", predicted, command_constraints)
                 except IndexError: 
-                    return cls("", predicted, CONFIG)
+                    return cls("", predicted, command_constraints)
 
         elif "**action:" in response:
-            print("reason formating 4")
-            response = response.split("**")
-            response = response[-2]
+            if "**action:**" in response:
+                response = response.split("**action:")[-1]
+                response = "**action:" + response
+                response = response.replace("*", "")
+                response = response.replace("  \n", ",")
+                response = response.replace(" \n", ",")
+                response = response.replace("\n", ",")
+            else:
+                response = response.split("**")
+                response = response[-2]
         else:
             response = response.split("\n")[-1].strip()
-            print("reason formating 5")
-
+            
         response = response.lower()
         response = response.replace("`", "")
         response = response.replace(", ", ",")
@@ -145,15 +149,18 @@ class SkillCommand():
                 else:
                     r[k] = v
 
-        if r['target_action'] in CONFIG["zero_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']}".strip(), predicted, CONFIG)
-        elif r['target_action'] in CONFIG["single_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted, CONFIG)
-        elif r['target_action'] in CONFIG["double_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted, CONFIG)
+        if r['property'] not in command_constraints["adjectives"]:
+            r["property"] = ""
+
+        if r['target_action'] in command_constraints["zero_object_actions"]:
+            return cls(f"{r['property']} {r['target_action']}".strip(), predicted, command_constraints)
+        elif r['target_action'] in command_constraints["single_object_actions"]:
+            return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted, command_constraints)
+        elif r['target_action'] in command_constraints["double_object_actions"]:
+            return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted, command_constraints)
         else: 
-            print("No known action", r['target_action'], " not in ", CONFIG["actions"])
-            return cls("", predicted, CONFIG)
+            print("No known action", r['target_action'], " not in ", command_constraints["actions"])
+            return cls("", predicted, command_constraints)
 
     def is_valid(self):
         not_valid = ""
@@ -174,13 +181,13 @@ class SkillCommand():
             if self.target_object2[-1] not in "0123456789":
                 not_valid += "object must have its id as last char"
 
-        if self.target_action in self.CONFIG["zero_object_actions"]:
+        if self.target_action in self.command_constraints["zero_object_actions"]:
             if self.target_object is not None or self.target_object2 is not None:
                 not_valid += "Not correct object number defined"
-        elif self.target_action in self.CONFIG["single_object_actions"]:
+        elif self.target_action in self.command_constraints["single_object_actions"]:
             if self.target_object is None or self.target_object2 is not None:
                 not_valid += "Not correct object number defined"
-        elif self.target_action in self.CONFIG["double_object_actions"]:
+        elif self.target_action in self.command_constraints["double_object_actions"]:
             if self.target_object is None or self.target_object2 is None:
                 not_valid += "Not correct object number defined"
         else: raise Exception("Action not in list!")

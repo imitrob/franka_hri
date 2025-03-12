@@ -121,7 +121,7 @@ You are an assistant that analyzes user requests to infer actions, objects, rela
 2. Identify the action (from: <insert_actions>) and its property (e.g., speed: "fast"). If actions/property are repeated (e.g., 'fast fast pour'), treat them as a single instance (e.g., 'fast').
 3. Determine the primary object (from: <insert_objects>). If objects are mentioned multiple times (e.g., 'cup cup'), infer they refer to the same grounded instance (e.g., cup1) unless attributes/context imply separate objects.
 4. Check for a secondary object and its relationship (e.g., "to", "from").
-5. Explain reasoning, check the valid actions and objects. Verify if repeated terms map to a single object instance in the scene. Use attributes or default to the primary valid object if ambiguous.
+5. Explain reasoning in few sentences, check the valid actions and objects. Verify if repeated terms map to a single object instance in the scene. Use attributes or default to the primary valid object if ambiguous.
 6. Output your reasoning, then finalize with:  
    `action: X, object1: Y, object2: Z, property: P, relationship: R`.
 
@@ -151,15 +151,14 @@ User:
 """
 
 
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-REASONING_ROLE_DESCRIPTION_MERGE5 = """
+REASONING_ROLE_DESCRIPTION_MERGE_ALTERNATIVES = """
 You are an assistant that analyzes user requests to guess what to do. Follow these steps:
 1. Read the user’s input.
 2. Guess the action for the robot to do from <insert_actions>. More action instances means higher it's chance.
 3. Guess the object (from: <insert_objects>) you want to interact with that action. More object instances means higher it's chance.
 4. Check if there is a second object (from: <insert_objects>) that may be required by the action.
 5. Find a property from: fast,slow,force. 
-5. ALWAYS explain your reasoning, check the valid actions and objects. 
+5. ALWAYS explain your reasoning in few sentences, check the valid actions and objects. 
 6. Finalize ALWAYS with:  
    `action: X, object1: Y, object2: Z, property: P, relationship: to`.
 
@@ -197,7 +196,7 @@ User:
 
 
 
-def get_role_description(A, O, S="", version="v4"):
+def get_role_description(A, O, S="", version="REASONING_ROLE_DESCRIPTION_MERGE_ALTERNATIVES"):
 
 
     if version == "v1":
@@ -208,8 +207,8 @@ def get_role_description(A, O, S="", version="v4"):
         d = REASONING_ROLE_DESCRIPTION_MERGE
     elif version == "v4":
         d = REASONING_ROLE_DESCRIPTION_MERGE2
-    elif version == "v6":
-        d = REASONING_ROLE_DESCRIPTION_MERGE5
+    elif version == "REASONING_ROLE_DESCRIPTION_MERGE_ALTERNATIVES":
+        d = REASONING_ROLE_DESCRIPTION_MERGE_ALTERNATIVES
     else:
         raise Exception()
     

@@ -34,11 +34,13 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
                  nlp_model_name = None,
                  tts_enabled = None,
                  stt_type: str = "deterministic",
+                 stt_enabled: bool = False,
                  ):
         if name_user is not None: self.user = name_user
         if nlp_model_name is not None: self.nlp_model_name = nlp_model_name
         if tts_enabled is not None: self.tts_enabled = tts_enabled
         if stt_type is not None: self.stt_type = stt_type
+        if stt_enabled is not None: self.stt_enabled = stt_enabled
         super(HCI, self).__init__()
 
         assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
@@ -46,13 +48,13 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
-        if self.stt_type == "deterministic":
-            self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
-        elif self.stt_type == "probabilistic":
-            self.stt = SpeechToTextModel(device="cuda")
-        elif self.stt_type == "alternatives":
-            self.stt = SpeechToTextModel(device="cuda")
-        else: raise Exception()
+        if stt_enabled:
+            if self.stt_type == "deterministic":
+                self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
+            elif self.stt_type == "probabilistic":
+                self.stt = SpeechToTextModel(device="cuda")
+            elif self.stt_type == "alternatives":
+                self.stt = SpeechToTextModel(device="cuda")
 
         if self.tts_enabled:
             print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
@@ -73,7 +75,8 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
     def delete(self):
         if self.tts_enabled:
             self.tts.delete()
-        self.stt.delete()
+        if self.stt_enabled:
+            self.stt.delete()
         self.sentence_processor.delete()
         time.sleep(1.0)
         clean_vram()

@@ -21,8 +21,8 @@ from multi_modal_reasoning.models.llm import SentenceProcessor
 
 RECEIVE_CHECK_INTERVAL = 1.0 # [s]
 from multi_modal_reasoning.role_setup import get_role_description
-
 from multi_modal_reasoning.generate_dataset import CONFIG3
+import torch
 
 class ReasoningMerger():
     def __init__(self,
@@ -30,7 +30,8 @@ class ReasoningMerger():
                 model_name: str,
                 dry_run: bool = True,
                 interpret_format: str = "deterministic",
-                tts_enabled = True,
+                tts_enabled = False,
+                stt_enabled = False,
                 ):
         """_summary_
 
@@ -47,7 +48,8 @@ class ReasoningMerger():
                 name_user = name_user,
                 nlp_model_name = model_name,
                 tts_enabled = tts_enabled,
-                stt_type = self.interpret_format
+                stt_type = self.interpret_format,
+                stt_enabled = stt_enabled,
             )
         else: # With robot control
             self.hri = HRI(
@@ -55,7 +57,8 @@ class ReasoningMerger():
                 tts_enabled = tts_enabled,
                 dry_run = False,
                 nlp_model_name = model_name,
-                stt_type = self.interpret_format
+                stt_type = self.interpret_format,
+                stt_enabled = stt_enabled,
             )
         self.model_name = model_name
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
@@ -112,7 +115,7 @@ class ReasoningMerger():
         hricommand = HriCommand.from_ros(msg)
         self.gestures_queue.append(hricommand)
 
-    def extract_merge_and_play(self, voicecommand, hricommand, scene_dict):
+    def extract_merge_and_play(self, voicecommand, hricommand, scene_dict, *args, **kwargs):
         print("extract merge and play")
         # extract
         if self.interpret_format == "deterministic":
@@ -141,7 +144,9 @@ class ReasoningMerger():
                 voice_stamped = voicecommand
         role_description = get_role_description(A=scene_dict["cfg"]["actions"], O=scene_dict["O"], S=scene_dict["S"])
         print(role_description)
-        skillcommand = self.merge(gesture_stamped, voice_stamped, cfg=scene_dict["cfg"], role_description=role_description)
+        skillcommand = self.merge(gesture_stamped, voice_stamped, 
+                                  command_constraints=scene_dict["cfg"], 
+                                  role_description=role_description, *args, **kwargs)
         
         print(skillcommand)
 
@@ -149,9 +154,19 @@ class ReasoningMerger():
         # self.hri.play_skill(target_action, target_object)
 
 
-    def merge(self, gesture_stamped, voice_stamped, cfg, role_description):
-        print("Voice stamped: ", voice_stamped, flush=True)
-        print("Gesture stamped: ", gesture_stamped, flush=True)
+    def merge(self, 
+            gesture_stamped, 
+            voice_stamped, 
+            command_constraints: dict[str, list], # valid (zero-object/single-object/double-object) actions
+            role_description: str, # for llm
+            quantization,
+            *args, **kwargs # llm params: temperature, top_p, repetition_penalty, max_generated_tokens
+            ):
+        """ Main merge function """
+        print(f"{cc.H}Merge function:{cc.E}")
+        print(f"{cc.H}[1]{cc.E} Voice stamped: ", voice_stamped, flush=True)
+        print(f"{cc.H}[2]{cc.E} Gesture stamped: ", gesture_stamped, flush=True)
+        print(f"{cc.H}[3]{cc.E} Role description incl. scene: ", role_description, flush=True)
         print_modalities(voice_stamped, gesture_stamped)
 
         gesture_stamped.extend(voice_stamped)
@@ -161,12 +176,20 @@ class ReasoningMerger():
         
         words = np.array(sorted_sentence)[:,1]
         
-        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name)
         
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
+        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name, quantization=quantization)
+
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
+
         if self.interpret_format == "deterministic":
             final_sentence = " ".join(words[words!=None])
             self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
-            predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description=role_description)
+            predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description=role_description, *args, **kwargs)
         elif self.interpret_format == "probabilistic":
             final_sentence = list(words[words!={}])
             for n,word in enumerate(final_sentence):
@@ -177,7 +200,7 @@ class ReasoningMerger():
             final_sentence.append({" ": 1.0})
             final_sentence.append({" ": 1.0})
             self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
-            predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, role_description=role_description)
+            predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, role_description=role_description, *args, **kwargs)
         elif self.interpret_format == "alternatives":
             words = list(words[words!={}])
             final_sentence = f"\n"
@@ -191,10 +214,10 @@ class ReasoningMerger():
                         final_sentence += f'- "{option}" is {grading[n]}\n'
 
             self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
-            predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description=role_description)
+            predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description=role_description, *args, **kwargs)
             
         print(f"{cc.W}LM says: {predicted} {cc.E}")
-        return SkillCommand.from_predicted(predicted, cfg=cfg)
+        return SkillCommand.from_predicted(predicted, command_constraints=command_constraints)
 
     def save_command(self, voice_command, gesture_command):
         print("save command")
@@ -203,12 +226,31 @@ class ReasoningMerger():
             i+=1
         np.savez(f"{multi_modal_reasoning.path}/saved_inputs/put_the_red_thing_to_the_black_thing/save_{i}", voice_command=np.array(voice_command), gesture_command=np.array(gesture_command))
 
-
-    def save(self, voice_stamped, gesture_stamped):
+    def save_log(self, true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names, 
+                 max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description):
+        data = {
+            "successful": SkillCommand(true_sentence) == skill_command,
+            "true_sentence": true_sentence, 
+            "predicted_sentence": skill_command.command,
+            "predicted": skill_command.predicted,
+            "model_name": self.name(),
+            "voice_stamped": [list(v) for v in voice_stamped],
+            "gesture_stamped": [list(v) for v in gesture_stamped],
+            "scene": scene, 
+            "object_names": object_names, 
+            "max_new_tokens": max_new_tokens, 
+            "temperature": temperature, 
+            "top_p": top_p, 
+            "repetition_penalty": repetition_penalty, 
+            "cfg": cfg, 
+            "role_description": role_description, 
+        }
+    
         i = 0
-        while Path(f"{multi_modal_reasoning.path}/saved_inputs/save_{i}.npz").is_file():
+        while Path(f"{multi_modal_reasoning.path}/saved_samples/save_{i}.json").is_file():
             i+=1
-        np.savez(f"{multi_modal_reasoning.path}/saved_inputs/save_{i}", voice_stamped=np.array(voice_stamped), gesture_stamped=np.array(gesture_stamped))
+        with open(f"{multi_modal_reasoning.path}/saved_samples/save_{i}.json", "w") as file:
+            json.dump(data, file, indent=4)
 
 
 class ArgmaxMerger():
@@ -223,7 +265,7 @@ class ArgmaxMerger():
     def name(self):
         return "Argmax"
 
-    def merge(self, gesture_stamped, voice_stamped, cfg, object_names, role_description=None):
+    def merge(self, gesture_stamped, voice_stamped, command_constraints, object_names, role_description=None, *args, **kwargs):
         gesture_stamped.extend(voice_stamped)
         sorted_sentence = sorted(gesture_stamped, key=lambda x: x[0])
 
@@ -302,7 +344,7 @@ class ZeroShotMerger():
     def name(self):
         return "ZeroShot"
 
-    def merge(self, gesture_stamped, voice_stamped, cfg, role_description=None):
+    def merge(self, gesture_stamped, voice_stamped, command_constraints, role_description=None, *args, **kwargs):
         # Classify action and primary object
         target_action = self.classify_entity(sentence, actions)
         target_object = self.classify_entity(sentence, objects)
@@ -324,7 +366,7 @@ class BeamSearchMerger():
     def name(self):
         return "BeamSearch"
 
-    def merge(self, gesture_stamped, voice_stamped, cfg, role_description=None):
+    def merge(self, gesture_stamped, voice_stamped, command_constraints, role_description=None, *args, **kwargs):
         pass
 
 def main():

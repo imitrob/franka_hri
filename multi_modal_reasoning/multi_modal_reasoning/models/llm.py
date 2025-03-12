@@ -1,8 +1,17 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 import torch
+from transformers import BitsAndBytesConfig
+from tqdm import tqdm
+
+class ProgressStoppingCriteria(StoppingCriteria):
+    def __init__(self, total_steps):
+        self.pbar = tqdm(total=total_steps)
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+        self.pbar.update(1)
+        return False  # Never stop early, just track progress
 
 class SentenceProcessor():
-    def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Reinforced"):
+    def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Reinforced", quantization=16):
         """Good models for instruct:
             model_name = Qwen/Qwen2.5-0.5B-Instruct (1GB VRAM)
             model_name = SultanR/SmolTulu-1.7b-Reinforced (3.3GB VRAM)
@@ -11,11 +20,25 @@ class SentenceProcessor():
         Args:
             model_name (str, optional): _description_. Defaults to "SultanR/SmolTulu-1.7b-Reinforced".
         """
+        if quantization == 32:
+            quantization_config = None
+            torch_dtype = torch.float32
+        elif quantization == 16:
+            quantization_config = None
+            torch_dtype = torch.float16
+        elif quantization == 8:
+            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+            torch_dtype = torch.float32
+        elif quantization == 4:
+            quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+            torch_dtype = torch.float32
+
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.float32,
-            device_map="auto",
+            torch_dtype=torch_dtype,
+            device_map="cuda", # needs to be fully loaded into the GPU or it's too slow!
             trust_remote_code=True,
+            quantization_config=quantization_config
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -77,7 +100,7 @@ class SentenceProcessor():
         )
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
 
-
+        printer = StoppingCriteriaList([ProgressStoppingCriteria(total_steps=max_new_tokens)])
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=max_new_tokens,  # Allow space for full format
@@ -85,7 +108,8 @@ class SentenceProcessor():
             top_p=top_p,  # Use full distribution
             repetition_penalty=repetition_penalty,
             eos_token_id=self.tokenizer.eos_token_id,
-            do_sample=False  # Force greedy decoding
+            do_sample=False,  # Force greedy decoding
+            stopping_criteria=printer,
         )
         # Decode only the new tokens
         response = self.tokenizer.decode(
@@ -166,6 +190,7 @@ class SentenceProcessor():
                 ["<|user|>", "<|assistant|>",0],
                 ["<|start_of_text|>", "<|end_of_text|>",1],
                 ["[|user|]", "[|assistant|]",2],
+                ["<｜User｜>", "<｜Assistant｜>",3],
             ]:
             # Tokenize the user role token (<|user|>) and user message separately
             user_role_token = replace_option[0] #"<|start_of_text|>" #"<|user|>"
@@ -212,6 +237,7 @@ class SentenceProcessor():
         combined_attention_mask = torch.ones(combined_inputs_embeds.shape[:2], device=combined_inputs_embeds.device)
         
         # Step 5: Generate
+        printer = StoppingCriteriaList([ProgressStoppingCriteria(total_steps=max_new_tokens)])
         generated_ids = self.model.generate(
             inputs_embeds=combined_inputs_embeds,
             attention_mask=combined_attention_mask,
@@ -220,9 +246,10 @@ class SentenceProcessor():
             top_p=top_p,
             repetition_penalty=repetition_penalty,
             eos_token_id=self.tokenizer.eos_token_id,
-            do_sample=False
+            do_sample=False,
+            stopping_criteria=printer,
         )
-        
+
         generated_sequence = generated_ids[0]
         response = self.tokenizer.decode(generated_sequence, skip_special_tokens=True)
         return response
