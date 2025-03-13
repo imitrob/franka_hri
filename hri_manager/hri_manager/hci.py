@@ -15,6 +15,8 @@ from std_msgs.msg import String
 
 from hri_manager.user_preference_getter import UserPreferenceGetter
 
+from scene_getter.scene_getting import SceneGetter
+
 def get_gpu_memory():
     command = "nvidia-smi --query-gpu=memory.free --format=csv"
     memory_free_info = subprocess.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
@@ -28,7 +30,7 @@ def clean_vram():
     gc.collect()
     torch.cuda.empty_cache()
 
-class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
+class HCI(SceneGetter, UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
     def __init__(self,
                  name_user = None,
                  nlp_model_name = None,

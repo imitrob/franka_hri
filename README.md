@@ -5,14 +5,14 @@ Command your robot with voice commands and hand gestures. Steps:
 1. Teach new robotic actions: skills (as kinesthetic demonstrations)
 2. Create user profile: Which skills to execute when certain action word or gesture is observed
 3. Execute skills!
-4. (Optional) Use LLM Merger to merge voice commands and hand gestures into single narrative
+4. Use **TransforMerger** ([multi_modal_reasoning](#transformerger) package) to merge voice commands and hand gestures into single narrative
 
 ## Install 
 
 ```
 mkdir -p robot_ws/src
 cd robot_ws/src
-git clone git@gitlab.ciirc.cvut.cz:imitrob/franka_hri.git
+git clone https://github.com/imitrob/franka_hri.git
 git clone https://github.com/imitrob/franka_learning_from_demonstrations_ros2
 git clone https://github.com/imitrob/natural_language_processing.git
 git clone https://github.com/imitrob/teleop_gesture_toolbox.git --depth 1
@@ -78,26 +78,33 @@ Tuning:
 Play with [llm.py:ROLE_DESCRIPTION](multi_modal_reasoning/models/llm.py)
 
 
-# TRANSFORMERGE
+# TransforMerger
 
 Usage:
-1. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=casper`
-2. `ros2 multi_modal_reasoning multi_modal_reasoning --name_user casper`
+1. `sudo leapd` Gesture sensor backend
+2. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=bruno` Gesture detectors
+2. `ros2 multi_modal_reasoning multi_modal_reasoning --name_user bruno` 
 
 Parameters:
-1. Set of Gestures: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
-  - You get set of pose-gestures and gesture swipes (use default set)
-  - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length` (should be user-calibrated)
-  - Ignored gestures that won't trigger execution: `gestures_processor.py:GestureSentence.ignored_gestures` (think about what you need)
-2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template. (const)
+1. Common-Set of Gestures set by default: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
+     - You get set of pose-gestures and gesture swipes (recommended: use default set)
+     - Tune the gesture activation time: `gestures_lib.py:GestureDataDetection.activate_length` (recommended: should be user-calibrated)
+     - Ignored gestures that won't trigger execution: `gestures_processor.py:GestureSentence.ignored_gestures` (note: be aware that these gestures are ignored)
+2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template. (recommended: for new setup, create your own set of skills)
 3. Scene objects setup. Choore or define scene properties: `scenes/scene_1.yaml` and change `scene_getter.scene_makers.mocked_scene_maker.py:SCENE_FILE` (const scene set)
 4. User preferences: `hri_manager/links/<username>_links.yaml` (var)
 5. Merger params:
   - `--name_user`, The user name, `default="casper"` (var)
   - `--name_model`, The user name, `default="SultanR/SmolTulu-1.7b-Reinforced"`
   - `--dry_run`, Dont play skills, `default=True`
-  - Choose role description `version` at `role_setup.py`
-  - Choose llm params at `llm.py` at predict and probabilistic_predict: 1. `temperature`, 0.0 is deterministic, `default=0.0`, 2. `top_p`, `default=1.0`, 3. `repetition_penalty`, `default=1.1`, 4. `--max_new_tokens`, max words output, `default=50`
+  - `--temperature`, 0.0 is deterministic, `default=0.0`
+  - `--top_p`, `default=1.0`, 
+  - `--repetition_penalty`, `default=1.1`, 
+  - `--max_new_tokens`, max words output, `default=1000`
+  - Choose role description `version` manually at `role_setup.py`
+  - `--quantization`, 4,8,16,32 bit quantitatization
+  - `--config_name`, defines valid actions for constraining the skillcommand
+
 
 Notes:
 - Gesture episode starts when hand is observed with sensor and ends when hand no longer observed, if any gesture activated, the gesture data "episode" are sent

@@ -70,7 +70,7 @@ class ReasoningMerger():
     def name(self):
         return self.model_name.split("/")[-1]
 
-    def spin(self, scene_dict):
+    def spin(self, *args, **kwargs):
         while rclpy.ok():
             time.sleep(RECEIVE_CHECK_INTERVAL)
             if len(self.record_queue) > 0:
@@ -95,12 +95,12 @@ class ReasoningMerger():
                     if self.dry_run:
                         self.save_command(voicecommand, hricommand)
                     else:
-                        self.extract_merge_and_play(voicecommand, hricommand, scene_dict)
+                        self.extract_merge_and_play(voicecommand, hricommand, *args, **kwargs)
                 else:
                     if self.dry_run:
                         self.save_command(voicecommand, [])
                     else:
-                        self.extract_merge_and_play(voicecommand, None, scene_dict)
+                        self.extract_merge_and_play(voicecommand, None,  *args, **kwargs)
 
                 self.record_queue = []
                 self.gestures_queue = []
@@ -115,8 +115,11 @@ class ReasoningMerger():
         hricommand = HriCommand.from_ros(msg)
         self.gestures_queue.append(hricommand)
 
-    def extract_merge_and_play(self, voicecommand, hricommand, scene_dict, *args, **kwargs):
+    def extract_merge_and_play(self, voicecommand, hricommand, cfg, role_version, *args, **kwargs):
         print("extract merge and play")
+
+        
+
         # extract
         if self.interpret_format == "deterministic":
             """ gesture_stamped: [:,0] - timestamps, [:,1] - words 
@@ -142,10 +145,15 @@ class ReasoningMerger():
             else: 
                 gesture_stamped = []
                 voice_stamped = voicecommand
-        role_description = get_role_description(A=scene_dict["cfg"]["actions"], O=scene_dict["O"], S=scene_dict["S"])
+        role_description = get_role_description(
+            A=cfg["actions"], 
+            O=self.hri.scene.O, 
+            S=self.hri.scene.get_scene_param_description(), 
+            version=role_version
+        )
         print(role_description)
         skillcommand = self.merge(gesture_stamped, voice_stamped, 
-                                  command_constraints=scene_dict["cfg"], 
+                                  command_constraints=cfg, 
                                   role_description=role_description, *args, **kwargs)
         
         print(skillcommand)
@@ -163,6 +171,8 @@ class ReasoningMerger():
             *args, **kwargs # llm params: temperature, top_p, repetition_penalty, max_generated_tokens
             ):
         """ Main merge function """
+        print()
+        print()
         print(f"{cc.H}Merge function:{cc.E}")
         print(f"{cc.H}[1]{cc.E} Voice stamped: ", voice_stamped, flush=True)
         print(f"{cc.H}[2]{cc.E} Gesture stamped: ", gesture_stamped, flush=True)
@@ -227,7 +237,7 @@ class ReasoningMerger():
         np.savez(f"{multi_modal_reasoning.path}/saved_inputs/put_the_red_thing_to_the_black_thing/save_{i}", voice_command=np.array(voice_command), gesture_command=np.array(gesture_command))
 
     def save_log(self, true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names, 
-                 max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description):
+                 max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description, quantization):
         data = {
             "successful": SkillCommand(true_sentence) == skill_command,
             "true_sentence": true_sentence, 
@@ -244,6 +254,7 @@ class ReasoningMerger():
             "repetition_penalty": repetition_penalty, 
             "cfg": cfg, 
             "role_description": role_description, 
+            "quantization": quantization,
         }
     
         i = 0
@@ -378,8 +389,14 @@ def main():
     # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Instruct")
     parser.add_argument('--name_model', type=str, help='The user name', default="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
     # parser.add_argument('--name_model', type=str, help='The user name', default="ibm-granite/granite-3.1-2b-instruct")
+    
+    parser.add_argument('--quantization', type=int, help='4,8,16,32 bits', default=8)
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=False)
-    # parser.add_argument('--role_version', type=str, help='Role description', default="v4")
+    parser.add_argument('--config_name', type=str, help='config_name', default="CONFIG3")
+    parser.add_argument('--temperature', type=float, help='temperature', default=0.0)
+    parser.add_argument('--top_p', type=float, help='top_p', default=1.0)
+    parser.add_argument('--repetition_penalty', type=float, help='repetition penalty', default=1.1)
+    parser.add_argument('--max_new_tokens', type=int, help='Max generated tokens', default=1000)
     args = parser.parse_args()
 
     rclpy.init()
@@ -389,14 +406,16 @@ def main():
     else:
         merger = ReasoningMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format, dry_run=args.dry_run)
 
-    scene_dict = {
-        "cfg": CONFIG3,
-        "O": ["bowl","box","cube", "cup"],
-        "S": "cube is small red cube. cup is medium red cup. bowl is red bowl. box is small black box",
-    }
-
     print(f"{cc.H}Ready!{cc.E}")
-    merger.spin(scene_dict)
+    merger.spin(
+        eval(args.config_name), 
+        role_version=args.role_version, 
+        temperature=args.temperature, 
+        top_p=args.top_p, 
+        repetition_penalty=args.repetition_penalty,
+        max_new_tokens=args.max_new_tokens,
+        quantization = args.quantization,
+    )
     
 
 if __name__ == "__main__":

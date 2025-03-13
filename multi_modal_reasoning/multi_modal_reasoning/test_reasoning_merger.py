@@ -64,13 +64,7 @@ def test_just_to_see_if_works():
         repetition_penalty = 1.1,
         quantization = 4,
     )
-    merger.save_log("pick cup1", skill_command, [
-            [0.0, "pick"],
-            [0.1, "green"],
-            [0.4, "cup"],
-        ], [
-            [0.4, "cup1"],
-        ], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, CONFIG3, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S))
+    merger.save_log("pick cup1", skill_command, [[0.0, "pick"],[0.1, "green"],[0.4, "cup"],], [ [0.4, "cup1"],], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, CONFIG3, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S, quantization=4))
     assert skill_command == SkillCommand("pick cup1"), f"{skill_command} != 'pick cup1'"
     merger.hri.delete()
     rclpy.shutdown()
@@ -266,6 +260,11 @@ def test_alignment_noise(
         # interpret_format="probabilistic",
         interpret_format="alternatives",
         cfg = CONFIG3,
+        max_new_tokens = 1000,
+        temperature = 0.0,
+        top_p = 1.0,
+        repetition_penalty = 1.1,
+        quantization = 4,
         ):
     """ Do not automate this, I think this is good like it is.
     """
@@ -286,20 +285,16 @@ def test_alignment_noise(
             else:
                 merger = ReasoningMerger(name_user="casper", model_name=model_name, interpret_format=interpret_format, tts_enabled=False)
             result_accuracy = []
-            for noise in tqdm(noise_levels, desc="Noise levels:"):
+            for noise in tqdm(noise_levels, desc="Noise levels:", position=0, leave=True):
                 acc_sum = 0
                 dataset = np.load(f"{multi_modal_reasoning.path}/saved_datasets/{dataset_name}_n{noise}.npy", allow_pickle=True)
                 n=-1
-                for sample in tqdm(dataset, desc=f"Sample (noise={noise}):"):
+                for sample in tqdm(dataset, desc=f"Sample (noise={noise}):", position=1, leave=False):
                     n+=1
                     voice_stamped, gesture_stamped, scene, object_names, true_sentence, CONFIG = sample.export(interpret_format)
                     
                     role_description = get_role_description(A=cfg["actions"], O=object_names, S=scene)
                     
-                    max_new_tokens = 1000
-                    temperature = 0.0
-                    top_p = 1.0
-                    repetition_penalty = 1.1
                     skill_command = merger.merge( 
                         voice_stamped=voice_stamped,
                         gesture_stamped=gesture_stamped, 
@@ -310,11 +305,11 @@ def test_alignment_noise(
                         repetition_penalty = repetition_penalty,
                         command_constraints = cfg,
                         object_names = object_names,
-                        quantization=4
+                        quantization = quantization,
                     )
                     if not (SkillCommand(true_sentence) == skill_command):
                         merger.save_log(true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names,
-                            max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description)
+                            max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description, quantization)
                     if SkillCommand(true_sentence) == skill_command:
                         acc_sum += 1
                         print(f"{cc.W}SUCCESS{cc.E}")
@@ -344,7 +339,11 @@ def test_on_saved_data(
         # gt = ["pick cube", "pick_red_object"],
         gt = ["put cube to box", "put_the_red_thing_to_the_black_thing"],
         # gt = ["put cube to box", "put_this_to_there"],
-        
+        max_new_tokens = 1000,
+        temperature = 0.0,
+        top_p = 1.0,
+        repetition_penalty = 1.1,
+        quantization = 4,
     ):
     true_sentence, folder = gt
     rclpy.init()
@@ -398,11 +397,7 @@ def test_on_saved_data(
             
             role_description = get_role_description(A=action_names, O=object_names, S=scene)
             print(role_description)
-            
-            max_new_tokens = 1000
-            temperature = 0.0
-            top_p = 1.0
-            repetition_penalty = 1.1
+
             skill_command = merger.merge( 
                 voice_stamped=voice_stamped if "v" in modality else [],
                 gesture_stamped=gesture_stamped if "g" in modality else [], 
@@ -416,7 +411,7 @@ def test_on_saved_data(
             )
             if not (SkillCommand(true_sentence) == skill_command):
                 merger.save_log(true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names,
-                    max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description)
+                    max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description, quantization)
             if SkillCommand(true_sentence) == skill_command:
                 acc_sum += 1
                 print(f"{cc.W}SUCCESS{cc.E}")
