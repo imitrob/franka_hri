@@ -87,13 +87,22 @@ class HRIMerger():
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
                 if len(self.gestures_queue) > 0:
                     hricommand = self.gestures_queue.pop()
+                    print()
+                    print("Gesture command is:")
                     print(hricommand)
+                    print("Voice command is:")
                     print(voicecommand)
+                    print()
+                    
                     if self.dry_run:
                         self.save_command(voicecommand, hricommand)
                     else:
                         self.extract_merge_and_play(voicecommand, hricommand) #, CONFIG=CONFIG, role_description=role_description)
                 else:
+                    print()
+                    print("Voice command is:")
+                    print(voicecommand)
+                    print()
                     if self.dry_run:
                         self.save_command(voicecommand, [])
                     else:
@@ -143,10 +152,17 @@ class HRIMerger():
         role_description = get_role_description(A=CONFIG3["actions"], O=["bowl","box","cube", "cup"], 
             S="cube is small red cube. cup is medium red cup. bowl is red bowl. box is small black box"
         )
+
+        print()
+        print("Role_description:")
         print(role_description)
+        print()
         skillcommand = self.merge(gesture_stamped, voice_stamped, CONFIG=CONFIG3, role_description=role_description) #, *args, **kwargs)
         
+        print()
+        print("SkillCommand is:")
         print(skillcommand)
+        print()
 
         self.hri.play_skillcommand(skillcommand)
         # self.hri.play_skill(target_action, target_object)
@@ -366,6 +382,7 @@ def main():
     # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Instruct")
     parser.add_argument('--name_model', type=str, help='The user name', default="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
     # parser.add_argument('--name_model', type=str, help='The user name', default="ibm-granite/granite-3.1-2b-instruct")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="meta-llama/Llama-3.2-1B-Instruct") 
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=False)
     # parser.add_argument('--role_version', type=str, help='Role description', default="v4")
     parser.add_argument('--temperature', type=float, help='temperature, 0.0 is deterministic ', default=0.0)
@@ -381,9 +398,11 @@ def main():
     else:
         merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format, dry_run=args.dry_run)
 
+    print()
     print(f"{cc.H}Ready!{cc.E}")
+    print()
+
     merger.spin()#CONFIG3), args.role_version)
-    
 
 if __name__ == "__main__":
     main()

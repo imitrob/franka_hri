@@ -98,6 +98,31 @@ class SceneObject:
     obj_type: str
     properties: Dict[str, str]
 
+CONFIG_DEMO = {
+    "save_ext": "CFGDEMO",
+    "zero_object_actions": ["stop"],
+    "single_object_actions": ["pick", "touch"],
+    "double_object_actions": ["put"],
+    "actions": ["stop", "pick", "touch", "put"], #, "place", "point", "open", "close", "put", "stop", "release", "home"], # all actions
+    "adjectives": ["fast","slow","force"],
+    "prepositions": ["to"], #["to", "into", "onto", "from"],
+    "object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
+    # "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],
+    "properties": {
+        "size": ["small", "medium", "large"],
+        "color": ["red", "green", "blue", "yellow"],
+        "state": ["open", "closed", "half-full"]
+    },
+    "noise": {
+        "phonetic_confusion": 0.0, #0.2,  # Probability of phonetic-based errors
+        "filler_words": 0.0, #0.3,        # Probability of adding filler words
+        "alignment_noise": 0.0, #0.4,     # 0=perfect alignment, 1=high misalignment
+        "incomplete_sentence": 0.0, #0.1  # Probability of truncated commands
+    },
+    "max_instances": 3, # if 1 then object don't have IDs
+    "filler_words": ["um", "ah", "like", "you know", "well", "so"],
+}
+
 
 class EnhancedDatasetGenerator:
     def __init__(self, config=CONFIG):

@@ -13,9 +13,15 @@ class SentenceProcessor():
         """
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.float32,
-            device_map="auto",
+            # torch_dtype=torch.float32,
+            device_map="cuda:0",
             trust_remote_code=True,
+            load_in_4bit=True,
+            # quantization_config={
+            #     "bnb_4bit_use_double_quant": True,
+            #     "bnb_4bit_quant_type": "nf4",  # Options: "nf4", "fp4", "int4"
+            #     "bnb_4bit_compute_dtype": torch.float16,  # or torch.bfloat16 if supported
+            # }
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 

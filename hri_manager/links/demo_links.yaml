@@ -1,0 +1,64 @@
+user: bruno
+actions:
+- pick
+- touch
+- put
+actions_tobeadded:
+- push
+- pass
+- place
+- point
+- open
+- close
+- pour
+- stop
+- release
+- home
+objects:
+- cube
+- bowl
+- box
+objects_tobeadded:
+- plate
+- cup
+- table
+- box
+all_action_words:
+- pick
+- touch
+- put
+all_action_words_tobeadded:
+- push
+- pass
+- place
+- point
+- open
+- close
+- pour
+- stop
+- release
+- home
+all_object_action_words:
+- cube
+- bowl
+- box
+all_object_action_words_tobeadded:
+- cup
+- plate
+- table
+links:
+  link1:
+    user: bruno
+    action_template: pick
+    action_gestures:
+    - [grab, swipe_up]
+  link3:
+    user: bruno
+    action_template: touch
+    action_gestures:
+    - [pinch, swipe_down]
+  link4:
+    user: bruno
+    action_template: put
+    action_gestures:
+    - [five, swipe_left]

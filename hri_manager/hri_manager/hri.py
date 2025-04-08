@@ -29,24 +29,21 @@ class HRI(HCI, Feedback_for_HRI, LfD):
     def play_skillcommand(self, skillcommand: SkillCommand):
         
         print(f"{cc.W}Playing skill command: {skillcommand}{cc.E}")
-        
-        if skillcommand.target_action not in ["pick", "put"] or skillcommand.target_object not in ["", "cube", None] or skillcommand.target_storage not in ["", "box", None]: 
-            self.speak(f"Check skill command please it is not valid. {skillcommand.target_action}, {skillcommand.target_object}, {skillcommand.target_storage}")
-            
 
+        # TODO: Check skill validity        
         # if not skillcommand.is_valid(): 
         #     self.speak("Skill Command is Not valid, returning!")
         #     return
         
         if skillcommand.target_action in skillcommand.CONFIG["zero_object_actions"]:
-            self.play_skill(name_skill="tfm_"+skillcommand.target_action, simplify=False)
+            self.play_skill(name_skill=skillcommand.target_action, simplify=False)
 
         if skillcommand.target_action in skillcommand.CONFIG["single_object_actions"]:
-            self.play_skill(name_skill="tfm_"+skillcommand.target_action+"_"+skillcommand.target_object, name_template="tfm_"+skillcommand.target_object, simplify=False)
+            self.play_skill(name_skill=skillcommand.target_action+"_"+skillcommand.target_object, name_template=skillcommand.target_object, simplify=False)
 
         if skillcommand.target_action in skillcommand.CONFIG["double_object_actions"]:
-            self.play_skill(name_skill="tfm_"+skillcommand.target_action+"1_"+skillcommand.target_object, name_template="tfm_"+skillcommand.target_object, simplify=False)
-            self.play_skill(name_skill="tfm_"+skillcommand.target_action+"2_"+skillcommand.target_storage, name_template="tfm_"+skillcommand.target_storage, simplify=False)
+            self.play_skill(name_skill=skillcommand.target_action+"1_"+skillcommand.target_object, name_template=skillcommand.target_object, simplify=False)
+            self.play_skill(name_skill=skillcommand.target_action+"2_"+skillcommand.target_storage, name_template=skillcommand.target_storage, simplify=False)
 
 
     def play_skill(self, name_skill: str, name_template: str= "", skill_parameter: float = None, simplify=True):
