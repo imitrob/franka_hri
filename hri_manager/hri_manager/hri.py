@@ -84,7 +84,7 @@ class HRI(HCI, Feedback_for_HRI, LfD):
                 self.load(name_skill)
             print(f"Execution", flush=True)
             self.execute()
-        except KeyboardInterrupt:
+        except KeyboardInterrupt: # not working, because there is another thread (Feedback) that shutsdown then KeyboardInterrupt
             pass
 
     def load_morph_trajectory(self, name_trajectory, morph_parameter: float):

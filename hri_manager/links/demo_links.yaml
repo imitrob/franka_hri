@@ -3,49 +3,18 @@ actions:
 - pick
 - touch
 - put
-actions_tobeadded:
-- push
-- pass
-- place
-- point
-- open
-- close
-- pour
-- stop
-- release
-- home
 objects:
 - cube
 - bowl
-- box
-objects_tobeadded:
-- plate
-- cup
-- table
 - box
 all_action_words:
 - pick
 - touch
 - put
-all_action_words_tobeadded:
-- push
-- pass
-- place
-- point
-- open
-- close
-- pour
-- stop
-- release
-- home
 all_object_action_words:
 - cube
 - bowl
 - box
-all_object_action_words_tobeadded:
-- cup
-- plate
-- table
 links:
   link1:
     user: bruno
@@ -61,4 +30,4 @@ links:
     user: bruno
     action_template: put
     action_gestures:
-    - [five, swipe_left]
+    - [thumbsup, swipe_left]

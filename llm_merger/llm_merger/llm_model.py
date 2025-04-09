@@ -18,7 +18,7 @@ from pathlib import Path
 from llm_merger.utils import print_modalities
 from transformers import pipeline
 from llm_merger.models.llm import SentenceProcessor
-
+from playsound import playsound
 RECEIVE_CHECK_INTERVAL = 1.0 # [s]
 from llm_merger.role_setup import get_role_description
 
@@ -64,6 +64,9 @@ class HRIMerger():
         self.record_queue = []
         self.gestures_queue = []
 
+        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name)
+        self.hri.superwaitexec = "" 
+
     def name(self):
         return self.model_name.split("/")[-1]
 
@@ -78,11 +81,18 @@ class HRIMerger():
                     voicecommand = self.hri.stt.transcribe_to_probstamped(file=record_stamped_file_name['file'], stamp=record_stamped_file_name['timestamp'])
                 else: raise Exception
 
-                a = input("Press enter to merge and execute, press 'n' to try again")
-                if "n" in a:
+                self.hri.superwaitexec = ""
+                playsound("/home/imitlearn/Downloads/alert1.wav")
+                # User presses Enter to execute or minus to to try again
+                while self.hri.superwaitexec == "":
+                    time.sleep(0.5)
+                if self.hri.superwaitexec == "again":
                     self.record_queue = []
                     self.gestures_queue = []
+                    print("Cleaned", flush=True)
                     continue
+                self.hri.superwaitexec = ""
+                    
                 if len(self.gestures_queue) > 1:
                     self.hri.speak(f"There are {len(self.gestures_queue)} of gesturings, the last one is used, others are discarded")
                 if len(self.gestures_queue) > 0:
@@ -115,11 +125,14 @@ class HRIMerger():
         msg_dict = json.loads(str(msg.data))
         print(f"Received: {cc.W}Recording{cc.E}", flush=True)
         self.record_queue.append(msg_dict)
+        playsound("/home/imitlearn/Downloads/alert2.wav")
 
     def gesture_hricommand_callback(self, msg):
-        print(f"Received: {cc.W}Gestures{cc.E}", flush=True)
         hricommand = HriCommand.from_ros(msg)
+        print(hricommand.get_target_timestamped_list())
+        print(f"Received: {cc.W}Gestures{cc.E}", flush=True)
         self.gestures_queue.append(hricommand)
+        playsound("/home/imitlearn/Downloads/alert2.wav")
 
     def extract_merge_and_play(self, voicecommand, hricommand): # , CONFIG,  *args, **kwargs):
         print("extract merge and play")
@@ -150,7 +163,7 @@ class HRIMerger():
                 voice_stamped = voicecommand
         # merge
         role_description = get_role_description(A=CONFIG3["actions"], O=["bowl","box","cube", "cup"], 
-            S="cube is small red cube. cup is medium red cup. bowl is red bowl. box is small black box"
+            S="cube is small green plastic cube. bowl is red metal bowl. box is small paper box."
         )
 
         print()
@@ -180,11 +193,10 @@ class HRIMerger():
         
         words = np.array(sorted_sentence)[:,1]
         
-        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name)
         
         if self.interpret_format == "deterministic":
             final_sentence = " ".join(words[words!=None])
-            self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
+            self.hri.speak(f"Merged sentence is: {final_sentence}, starting reasoner")
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
             # Run second round on object similarity
             # predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description, *args, **kwargs)
@@ -197,7 +209,7 @@ class HRIMerger():
             final_sentence.insert(0, {" ": 1.0})
             final_sentence.append({" ": 1.0})
             final_sentence.append({" ": 1.0})
-            self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
+            self.hri.speak(f"Merged sentence is: {final_sentence}, starting reasoner")
             predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, *args, **kwargs)
         elif self.interpret_format == "alternatives":
             # ans = beam_search(words)
@@ -231,7 +243,7 @@ class HRIMerger():
                             final_sentence += f'- "{option}" is {grading[n]}\n'
                         # if True:
 
-            self.hri.speak(f"Merged sentence is: {final_sentence}, starting LM")
+            self.hri.speak(f"Merged sentence is: {final_sentence}, starting reasoner")
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, *args, **kwargs)
             
         print(f"{cc.W}LM says: {predicted} {cc.E}")
@@ -380,8 +392,8 @@ def main():
     # parser.add_argument('--interpret_format', type=str, help='deterministic or probabilistic', default="probabilistic")
     # parser.add_argument('--name_model', type=str, help='The user name', default="ArgmaxMerger")
     # parser.add_argument('--name_model', type=str, help='The user name', default="SultanR/SmolTulu-1.7b-Instruct")
-    parser.add_argument('--name_model', type=str, help='The user name', default="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
-    # parser.add_argument('--name_model', type=str, help='The user name', default="ibm-granite/granite-3.1-2b-instruct")
+    # parser.add_argument('--name_model', type=str, help='The user name', default="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
+    parser.add_argument('--name_model', type=str, help='The user name', default="ibm-granite/granite-3.1-2b-instruct")
     # parser.add_argument('--name_model', type=str, help='The user name', default="meta-llama/Llama-3.2-1B-Instruct") 
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=False)
     # parser.add_argument('--role_version', type=str, help='Role description', default="v4")
@@ -399,7 +411,7 @@ def main():
         merger = HRIMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format, dry_run=args.dry_run)
 
     print()
-    print(f"{cc.H}Ready!{cc.E}")
+    merger.hri.speak(f"Program is ready!")
     print()
 
     merger.spin()#CONFIG3), args.role_version)

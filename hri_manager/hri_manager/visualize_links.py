@@ -1,175 +1,273 @@
+import yaml, os
+import hri_manager, trajectory_data
 import yaml
 import os
 import plotly.graph_objects as go
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc, html, Input, Output
+import numpy as np
 from collections import defaultdict
 
-import hri_manager, trajectory_data
-
 user = "bruno"
-
-# Load user configuration from YAML
 with open(f'{hri_manager.package_path}/links/{user}_links.yaml') as f:
     user_data = yaml.safe_load(f)
 actions = user_data['actions']
 objects = user_data['objects']
 
-# Load skill files
+# Load skills
 skill_files = os.listdir(f'{trajectory_data.package_path}/trajectories')
 skill_files = [f for f in skill_files if f.endswith('.npz')]
 
-zero_actions = []
-single_actions = []
-double_actions = []
+# Build skill database
+skill_db = defaultdict(dict)
+for f in skill_files:
+    if '_' in f:
+        parts = f.split('_')
+        if len(parts) == 2:  # single object or double object action
+            skill_part, obj = parts
+            obj = obj.replace('.npz', '')
+            if skill_part[-1].isdigit():  # double object action
+                action = skill_part[:-1]
+                num = skill_part[-1]
+                skill_db[(action, num)][obj] = True
+            else:  # single object action
+                action = skill_part
+                skill_db[(action, 'single')][obj] = True
 
-for action in actions:
-    # Check zero-object actions
-    if f"{action}.npz" in skill_files:
-        zero_actions.append(action)
-        continue
-    
-    # Check single-object actions
-    single_skills = [f for f in skill_files if f.startswith(f"{action}_")]
-    if single_skills:
-        single_actions.append(action)
-        continue
-    
-    # Check double-object actions
-    part1 = any(f.startswith(f"{action}1_") for f in skill_files)
-    part2 = any(f.startswith(f"{action}2_") for f in skill_files)
-    if part1 and part2:
-        double_actions.append(action)
-
-nodes = []
-node_info = {}  # {node_id: {'label': str, 'group': str}}
-edges = []
-
-# Add action nodes
-groups = ['zero', 'single', 'double']
-for idx, group in enumerate(groups):
-    for action in eval(f"{group}_actions"):
-        node_id = len(nodes)
-        nodes.append(node_id)
-        node_info[node_id] = {
-            'label': f"{action} ({group[0].upper()})",
-            'group': f"action_{group}"
-        }
-
-# Add object nodes
-for obj in objects:
-    node_id = len(nodes)
-    nodes.append(node_id)
-    node_info[node_id] = {'label': obj, 'group': 'object'}
-
-# Add skill nodes
-skill_nodes = defaultdict(list)
-for skill in skill_files:
-    node_id = len(nodes)
-    nodes.append(node_id)
-    node_info[node_id] = {'label': skill, 'group': 'skill'}
-    skill_nodes[skill] = node_id
-
-# Create edges
-def find_node(label_part, group):
-    for node_id, info in node_info.items():
-        if info['group'] == group and label_part in info['label']:
-            return node_id
-    return None
-
-# Zero-object edges
-for action in zero_actions:
-    action_node = find_node(f"{action} (Z)", "action_zero")
-    skill_node = skill_nodes.get(f"{action}.npz")
-    if action_node is not None and skill_node is not None:
-        edges.append((action_node, skill_node))
-
-# Single-object edges
-for action in single_actions:
-    action_node = find_node(f"{action} (S)", "action_single")
-    for obj in objects:
-        skill_name = f"{action}_{obj}.npz"
-        if skill_name in skill_nodes:
-            obj_node = find_node(obj, "object")
-            skill_node = skill_nodes[skill_name]
-            edges.append((action_node, obj_node))
-            edges.append((obj_node, skill_node))
-
-# Double-object edges
-for action in double_actions:
-    action_node = find_node(f"{action} (D)", "action_double")
-    for obj1 in objects:
-        for obj2 in objects:
-            skill1 = f"{action}1_{obj1}.npz"
-            skill2 = f"{action}2_{obj2}.npz"
-            if skill1 in skill_nodes and skill2 in skill_nodes:
-                obj_node1 = find_node(obj1, "object")
-                obj_node2 = find_node(obj2, "object")
-                edges.append((action_node, obj_node1))
-                edges.append((action_node, obj_node2))
-                edges.append((obj_node1, skill_nodes[skill1]))
-                edges.append((obj_node2, skill_nodes[skill2]))
-
-# Create network graph
-node_x = []
-node_y = []
-colors = []
-text = []
-group_positions = {
-    'action_zero': (0, 0),
-    'action_single': (0, 1),
-    'action_double': (0, 2),
-    'object': (1, 0),
-    'skill': (2, 0)
-}
-
-for node_id in nodes:
-    group = node_info[node_id]['group']
-    x, y = group_positions.get(group, (3, 0))
-    node_x.append(x)
-    node_y.append(y)
-    text.append(node_info[node_id]['label'])
-    colors.append(1 if 'action' in group else (2 if group == 'object' else 3))
-
-edge_x = []
-edge_y = []
-for edge in edges:
-    x0, y0 = node_x[edge[0]], node_y[edge[0]]
-    x1, y1 = node_x[edge[1]], node_y[edge[1]]
-    edge_x.extend([x0, x1, None])
-    edge_y.extend([y0, y1, None])
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=edge_x, y=edge_y,
-    line=dict(width=0.5, color='#888'),
-    hoverinfo='none',
-    mode='lines'))
-
-fig.add_trace(go.Scatter(
-    x=node_x, y=node_y,
-    mode='markers+text',
-    text=text,
-    textposition="bottom center",
-    marker=dict(
-        color=colors,
-        size=20,
-        line=dict(width=2, color='DarkSlateGrey'))
-))
-
-fig.update_layout(
-    showlegend=False,
-    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-    plot_bgcolor='white'
-)
-
-# Create Dash app
+# Initialize Dash app
 app = dash.Dash(__name__)
+
+# Store node positions globally
+action_nodes = []
+object_nodes = []
+
 app.layout = html.Div([
-    dcc.Graph(figure=fig)
+    html.Div([
+        dcc.Graph(id='main-graph', style={'width': '60%', 'height': '90vh', 'display': 'inline-block'}),
+        dcc.Graph(id='matrix-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'})
+    ])
 ])
+
+# Create main graph with proper connections
+@app.callback(
+    Output('main-graph', 'figure'),
+    Input('main-graph', 'relayoutData'))
+# Update the create_main_graph function
+def create_main_graph(_):
+    fig = go.Figure()
+    global action_nodes, object_nodes
+    
+    # Clear previous nodes
+    action_nodes = []
+    object_nodes = []
+    
+    # Create action nodes (left column)
+    for idx, action in enumerate(actions):
+        action_nodes.append({
+            'label': action,
+            'x': 0,
+            'y': 1 - idx/len(actions),
+            'type': 'action'
+        })
+    
+    # Create object nodes (right column)
+    for idx, obj in enumerate(objects):
+        object_nodes.append({
+            'label': obj,
+            'x': 1,
+            'y': 1 - idx/len(objects),
+            'type': 'object'
+        })
+
+    # Add action nodes to figure (with showlegend=True)
+    fig.add_trace(go.Scatter(
+        x=[n['x'] for n in action_nodes],
+        y=[n['y'] for n in action_nodes],
+        mode='markers+text',
+        text=[n['label'] for n in action_nodes],
+        marker=dict(size=20, color='#FF9AA2'),
+        textposition="middle center",
+        hoverinfo='text',
+        name='Actions (Left)',
+        showlegend=True
+    ))
+
+    # Add object nodes to figure (with showlegend=True)
+    fig.add_trace(go.Scatter(
+        x=[n['x'] for n in object_nodes],
+        y=[n['y'] for n in object_nodes],
+        mode='markers+text',
+        text=[n['label'] for n in object_nodes],
+        marker=dict(size=20, color='#B5EAD7'),
+        textposition="middle center",
+        hoverinfo='text',
+        name='Objects (Right)',
+        showlegend=True
+    ))
+
+    # Add edges for all valid actions
+    soa_leg = True
+    fo_leg = True
+    so_leg = True
+    for action in actions:
+        # Single object actions (gray solid lines)
+        if (action, 'single') in skill_db:
+            for obj in skill_db[(action, 'single')]:
+                start = next(n for n in action_nodes if n['label'] == action)
+                end = next(n for n in object_nodes if n['label'] == obj)
+                fig.add_trace(go.Scatter(
+                    x=[start['x'], end['x']],
+                    y=[start['y'], end['y']],
+                    mode='lines',
+                    line=dict(color='#888', width=2),
+                    hoverinfo='none',
+                    name='Single-object action',
+                    showlegend=True if soa_leg else False  # Only show once
+                ))
+                soa_leg = False
+        
+        # Double object actions
+        if (action, '1') in skill_db or (action, '2') in skill_db:
+            # First objects (yellow dashed lines)
+            if (action, '1') in skill_db:
+                for obj in skill_db[(action, '1')]:
+                    start = next(n for n in action_nodes if n['label'] == action)
+                    end = next(n for n in object_nodes if n['label'] == obj)
+                    fig.add_trace(go.Scatter(
+                        x=[start['x'], end['x']],
+                        y=[start['y'], end['y']],
+                        mode='lines',
+                        line=dict(color='#FFD700', width=2, dash='dot'),
+                        hoverinfo='none',
+                        name='First object',
+                        showlegend=True if fo_leg else False  # Only show once
+                    ))
+                    fo_leg = False
+            
+            # Second objects (blue dashed lines)
+            if (action, '2') in skill_db:
+                for obj in skill_db[(action, '2')]:
+                    start = next(n for n in action_nodes if n['label'] == action)
+                    end = next(n for n in object_nodes if n['label'] == obj)
+                    fig.add_trace(go.Scatter(
+                        x=[start['x'], end['x']],
+                        y=[start['y'], end['y']],
+                        mode='lines',
+                        line=dict(color='#4682B4', width=1, dash='dashdot'),
+                        hoverinfo='none',
+                        name='Second object',
+                        showlegend=True if so_leg else False  # Only show once
+                    ))
+                    so_leg = False
+
+    # Customize legend and layout
+    fig.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            title_text="Legend:"
+        ),
+        showlegend=True,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.1, 1.1]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        plot_bgcolor='white',
+        margin=dict(l=20, r=20, t=40, b=20),
+        title=""
+    )
+    
+    # Hide duplicate legend entries (we only want one per type)
+    names = set()
+    fig.for_each_trace(
+        lambda trace:
+            trace.update(showlegend=False)
+            if (trace.name in names) else names.add(trace.name)
+    )
+    
+    return fig
+
+# Callback for matrix display
+@app.callback(
+    Output('matrix-display', 'figure'),
+    Input('main-graph', 'clickData'))
+def update_matrix(clickData):
+    fig = go.Figure()
+    if not clickData:
+        return fig
+    
+    try:
+        point_index = clickData['points'][0]['pointIndex']
+        clicked_trace = clickData['points'][0]['curveNumber']
+        
+        # Only respond to clicks on action nodes (trace 0)
+        if clicked_trace != 0:
+            return fig
+        
+        action = action_nodes[point_index]['label']
+        
+        # Check if it's a double action
+        if (action, '1') in skill_db and (action, '2') in skill_db:
+            first_objs = list(skill_db[(action, '1')].keys())
+            second_objs = list(skill_db[(action, '2')].keys())
+            
+            # Create matrix of valid combinations
+            matrix = np.zeros((len(first_objs), len(second_objs)))
+            annotations = []
+            
+            for i, f_obj in enumerate(first_objs):
+                for j, s_obj in enumerate(second_objs):
+                    # Check if both parts exist and objects are different
+                    if f_obj in skill_db[(action, '1')] and s_obj in skill_db[(action, '2')] and f_obj != s_obj:
+                        matrix[i,j] = 1
+                        annotations.append(
+                            dict(text="✓",
+                                 x=j, y=i, 
+                                 xref='x', yref='y',
+                                 showarrow=False,
+                                 font=dict(color='black'))
+                        )
+            
+            fig = go.Figure(data=go.Heatmap(
+                z=matrix,
+                x=second_objs,
+                y=first_objs,
+                colorscale=[[0, 'white'], [1, '#90EE90']],
+                showscale=False,
+                hoverinfo='none'
+            ))
+            
+            fig.update_layout(
+                title=f"Valid pairs for {action}",
+                annotations=annotations,
+                xaxis_title="Second Object",
+                yaxis_title="First Object",
+                plot_bgcolor='white',
+                yaxis=dict(autorange='reversed')  # To match matrix convention
+            )
+        elif (action, 'single') in skill_db:
+            # Show single object connections
+            valid_objs = list(skill_db[(action, 'single')].keys())
+            fig.add_trace(go.Scatter(
+                x=[0.5] * len(valid_objs),
+                y=valid_objs,
+                mode='markers',
+                marker=dict(size=20, color='#90EE90'),
+                text=valid_objs,
+                hoverinfo='text'
+            ))
+            fig.update_layout(
+                title=f"Valid objects for {action}",
+                xaxis=dict(showgrid=False, showticklabels=False, range=[0, 1]),
+                yaxis=dict(title="Objects"),
+                plot_bgcolor='white'
+            )
+        
+    except Exception as e:
+        print(f"Error updating matrix: {e}")
+    
+    return fig
 
 if __name__ == '__main__':
     app.run(debug=True, port=8051)

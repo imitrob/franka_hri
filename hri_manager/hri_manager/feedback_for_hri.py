@@ -15,6 +15,11 @@ class Feedback_for_HRI(Feedback):
             if not self.is_recording:
                 self.is_recording = True
                 self.rec.start_recording()
+        if key == KeyCode.from_char("-"):
+            self.superwaitexec = "again"
+        if key == Key.enter:
+            self.superwaitexec = "exec"
+
         super()._on_press(key)
 
     def _on_release(self, key):
