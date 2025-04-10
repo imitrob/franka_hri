@@ -3,9 +3,6 @@ from pathlib import Path
 from natural_language_processing.text_to_speech.kokoro_model import Chatterbox
 from natural_language_processing.speech_to_text.audio_recorder import AudioRecorder
 from natural_language_processing.speech_to_text.whisper_model import SpeechToTextModel
-# from natural_language_processing.speech_to_text.whisper_probabilistic_model import SpeechToTextModel as ProbabilisticSpeechToTextModel
-# from natural_language_processing.sentence_instruct_transformer.sentence_processor import SentenceProcessor
-from llm_merger.models.llm import SentenceProcessor
 from gesture_sentence_maker.gesture_sentence_getter import GestureSentenceGetter
 
 import subprocess
@@ -17,6 +14,8 @@ from naive_merger.utils import cc
 from std_msgs.msg import String
 
 from hri_manager.user_preference_getter import UserPreferenceGetter
+
+from scene_getter.scene_getting import SceneGetter
 
 def get_gpu_memory():
     command = "nvidia-smi --query-gpu=memory.free --format=csv"
@@ -31,17 +30,19 @@ def clean_vram():
     gc.collect()
     torch.cuda.empty_cache()
 
-class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
+class HCI(SceneGetter, UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
     def __init__(self,
                  name_user = None,
                  nlp_model_name = None,
                  tts_enabled = None,
                  stt_type: str = "deterministic",
+                 stt_enabled: bool = False,
                  ):
         if name_user is not None: self.user = name_user
         if nlp_model_name is not None: self.nlp_model_name = nlp_model_name
         if tts_enabled is not None: self.tts_enabled = tts_enabled
         if stt_type is not None: self.stt_type = stt_type
+        if stt_enabled is not None: self.stt_enabled = stt_enabled
         super(HCI, self).__init__()
 
         assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
@@ -49,13 +50,13 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
-        if self.stt_type == "deterministic":
-            self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
-        elif self.stt_type == "probabilistic":
-            self.stt = SpeechToTextModel(device="cuda")
-        elif self.stt_type == "alternatives":
-            self.stt = SpeechToTextModel(device="cuda")
-        else: raise Exception()
+        if stt_enabled:
+            if self.stt_type == "deterministic":
+                self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
+            elif self.stt_type == "probabilistic":
+                self.stt = SpeechToTextModel(device="cuda")
+            elif self.stt_type == "alternatives":
+                self.stt = SpeechToTextModel(device="cuda")
 
         if self.tts_enabled:
             print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
@@ -76,7 +77,8 @@ class HCI(UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
     def delete(self):
         if self.tts_enabled:
             self.tts.delete()
-        self.stt.delete()
+        if self.stt_enabled:
+            self.stt.delete()
         self.sentence_processor.delete()
         time.sleep(1.0)
         clean_vram()
