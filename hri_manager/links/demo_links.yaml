@@ -1,4 +1,4 @@
-user: bruno
+user: demo
 actions:
 - pick
 - touch
@@ -17,17 +17,17 @@ all_object_action_words:
 - box
 links:
   link1:
-    user: bruno
+    user: demo
     action_template: pick
     action_gestures:
     - [grab, swipe_up]
   link3:
-    user: bruno
+    user: demo
     action_template: touch
     action_gestures:
     - [pinch, swipe_down]
   link4:
-    user: bruno
+    user: demo
     action_template: put
     action_gestures:
     - [thumbsup, swipe_left]

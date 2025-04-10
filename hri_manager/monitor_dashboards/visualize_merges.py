@@ -15,10 +15,11 @@ data = [json.load(open(f)) for f in save_files]
 def create_timeline_data(entry):
     """Process voice and gesture events into timeline format"""
     timeline = []
-    
+    print("voicesm", entry['voice_stamped'])
     # Process voice commands
     if 'voice_stamped' in entry and isinstance(entry['voice_stamped'], list):
         for i, (time, word) in enumerate(entry['voice_stamped']):
+            word = list(word.values())[0]
             if isinstance(time, (int, float)) and isinstance(word, str):
                 timeline.append({
                     "Event": "Voice",
@@ -31,6 +32,7 @@ def create_timeline_data(entry):
     # Process gestures
     if 'gesture_stamped' in entry and isinstance(entry['gesture_stamped'], list):
         for time, gesture in entry['gesture_stamped']:
+            gesture = list(gesture.values())[0]
             if isinstance(time, (int, float)) and isinstance(gesture, str):
                 timeline.append({
                     "Event": "Gesture",
@@ -42,8 +44,8 @@ def create_timeline_data(entry):
     
     # Return as DataFrame
     timeline_df = pd.DataFrame(timeline)
-    timeline_df["Start"] = pd.to_datetime(timeline_df['Start'], unit='s')
-    timeline_df["End"] =   pd.to_datetime(timeline_df['End'], unit='s')
+    # timeline_df["Start"] = pd.to_datetime(timeline_df['Start'], unit='s')
+    # timeline_df["End"] =   pd.to_datetime(timeline_df['End'], unit='s')
     return timeline_df
 
 def parse_scene_objects(scene_text):
@@ -156,7 +158,6 @@ app.layout = html.Div([
 
 
     
-
 @app.callback(
     [Output('status-banner', 'children'),
      Output('true-sentence', 'children'),
@@ -169,7 +170,6 @@ app.layout = html.Div([
     [Input('file-selector', 'value')]
 )
 def update_all_components(selected_index):
-    # if selected_index is None: return None
     entry = data[selected_index]
     
     # Status Banner
@@ -188,30 +188,35 @@ def update_all_components(selected_index):
     true_sentence = entry['true_sentence']
     predicted_sentence = entry['predicted_sentence']
 
-    # Debug: Print voice_stamped and gesture_stamped
-    print("Voice Stamped Data:", entry.get('voice_stamped'))
-    print("Gesture Stamped Data:", entry.get('gesture_stamped'))
-    
     # Create timeline data
     timeline_df = create_timeline_data(entry)
-    print(timeline_df["Event"])
-    print(timeline_df["Label"])
-    timeline_fig = px.timeline(
-        timeline_df, 
-        x_start="Start", 
-        x_end="End", 
-        y="Event",
-        color="Event",
-        text="Label",
-        title="Temporal Sequence of Voice and Gesture Events"
-    )
-    # timeline_fig.update_layout(
-    #     timeline_df,
-    #     showlegend=False,
-    #     xaxis_title="Time (seconds)",
-    #     yaxis_title="Event Type"
-    # )
-    # Scene Objects Table
+    
+    # Handle empty timeline data
+    if timeline_df.empty:
+        timeline_fig = px.scatter(title="No timeline data available")
+        timeline_fig.update_layout(
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            annotations=[{
+                "text": "No timeline data available",
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {"size": 16}
+            }]
+        )
+    else:
+        timeline_fig = px.timeline(
+            timeline_df, 
+            x_start="Start", 
+            x_end="End", 
+            y="Event",
+            color="Event",
+            text="Label",
+            title="Temporal Sequence of Voice and Gesture Events"
+        )
+    
+    # Rest of your code remains the same...
     scene_objects = parse_scene_objects(entry['scene'])
     scene_columns = [{"name": col, "id": col} for col in ['Object', 'Type', 'Color', 'Size']]
     
@@ -220,8 +225,11 @@ def update_all_components(selected_index):
     if 'predicted' in entry:
         action_str = entry['predicted'].strip('`').split(', ')
         for part in action_str:
-            key, val = part.split(': ', 1)
-            action_data.append({'component': key.capitalize(), 'value': val})
+            key, sep, val = part.partition(': ')  # Always returns 3 parts
+            if sep:  # If separator was found
+                action_data.append({'component': key.capitalize(), 'value': val})
+            else:
+                print(f"Skipping malformed part: {part}")  # Debug output
     
     # Config Panel
     config = json.dumps({
@@ -243,4 +251,4 @@ def update_all_components(selected_index):
     )
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8050, host='127.0.0.1')
+    app.run(debug=True, port=8075, host='127.0.0.1')

@@ -8,52 +8,100 @@ from dash import dcc, html, Input, Output
 import numpy as np
 from collections import defaultdict
 
-user = "bruno"
-with open(f'{hri_manager.package_path}/links/{user}_links.yaml') as f:
-    user_data = yaml.safe_load(f)
-actions = user_data['actions']
-objects = user_data['objects']
-
-# Load skills
-skill_files = os.listdir(f'{trajectory_data.package_path}/trajectories')
-skill_files = [f for f in skill_files if f.endswith('.npz')]
-
-# Build skill database
-skill_db = defaultdict(dict)
-for f in skill_files:
-    if '_' in f:
-        parts = f.split('_')
-        if len(parts) == 2:  # single object or double object action
-            skill_part, obj = parts
-            obj = obj.replace('.npz', '')
-            if skill_part[-1].isdigit():  # double object action
-                action = skill_part[:-1]
-                num = skill_part[-1]
-                skill_db[(action, num)][obj] = True
-            else:  # single object action
-                action = skill_part
-                skill_db[(action, 'single')][obj] = True
-
-# Initialize Dash app
 app = dash.Dash(__name__)
 
-# Store node positions globally
-action_nodes = []
+action_nodes = [] # Store node positions globally
 object_nodes = []
 
+# Get all available users from YAML files in the links directory
+links_dir = f'{hri_manager.package_path}/links'
+user_files = [f for f in os.listdir(links_dir) if f.endswith('_links.yaml')]
+
+# Create a mapping of display names to filenames
+user_mapping = {}
+for filename in user_files:
+    base_name = filename.replace('_links.yaml', '')
+    
+    display_name = base_name.replace('_', ' ').title()
+    user_mapping[display_name] = filename
+
 app.layout = html.Div([
+    dcc.Store(id='user-store'),
+    html.Div(id='dummy-output', style={'display': 'none'}),
+    html.Div([
+        dcc.Dropdown(
+            id='user-dropdown',
+            options=[{'label': display_name, 'value': filename} 
+                    for display_name, filename in user_mapping.items()],
+            value=list(user_mapping.values())[0] if user_mapping else None,
+            style={'width': '200px', 'margin': '10px'}
+        ),
+    ]),
     html.Div([
         dcc.Graph(id='main-graph', style={'width': '60%', 'height': '90vh', 'display': 'inline-block'}),
         dcc.Graph(id='matrix-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'})
     ])
 ])
 
-# Create main graph with proper connections
+# Store data globally
+actions = []
+objects = []
+skill_db = defaultdict(dict)
+
+@app.callback(
+    Output('dummy-output', 'children'),
+    Input('user-dropdown', 'value'),
+    prevent_initial_call=True
+)
+def load_user_data(selected_filename):
+    global actions, objects, skill_db
+    
+    # Clear previous data
+    actions = []
+    objects = []
+    skill_db = defaultdict(dict)
+    
+    # Load user data
+    with open(f'{hri_manager.package_path}/links/{selected_filename}') as f:
+        user_data = yaml.safe_load(f)
+    actions = user_data['actions']
+    objects = user_data['objects']
+
+    # Load skills
+    skill_files = os.listdir(f'{trajectory_data.package_path}/trajectories')
+    skill_files = [f for f in skill_files if f.endswith('.npz')]
+
+    # Build skill database
+    for f in skill_files:
+        if '_' in f:
+            parts = f.split('_')
+            if len(parts) == 2:
+                skill_part, obj = parts
+                obj = obj.replace('.npz', '')
+                if skill_part[-1].isdigit():
+                    action = skill_part[:-1]
+                    num = skill_part[-1]
+                    skill_db[(action, num)][obj] = True
+                else:
+                    action = skill_part
+                    skill_db[(action, 'single')][obj] = True
+    
+    return ""  # Returns empty string to dummy output
 @app.callback(
     Output('main-graph', 'figure'),
-    Input('main-graph', 'relayoutData'))
-# Update the create_main_graph function
-def create_main_graph(_):
+    [Input('dummy-output', 'children'),
+     Input('main-graph', 'relayoutData')],
+    prevent_initial_call=True
+)
+def create_main_graph(trigger, _):
+    # Check which input triggered the callback
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+        
+    # Only proceed if we have data
+    if not actions or not objects:
+        return go.Figure()
     fig = go.Figure()
     global action_nodes, object_nodes
     
@@ -113,6 +161,9 @@ def create_main_graph(_):
         # Single object actions (gray solid lines)
         if (action, 'single') in skill_db:
             for obj in skill_db[(action, 'single')]:
+                if obj not in objects:
+                    continue
+        
                 start = next(n for n in action_nodes if n['label'] == action)
                 end = next(n for n in object_nodes if n['label'] == obj)
                 fig.add_trace(go.Scatter(
@@ -131,6 +182,8 @@ def create_main_graph(_):
             # First objects (yellow dashed lines)
             if (action, '1') in skill_db:
                 for obj in skill_db[(action, '1')]:
+                    if obj not in objects:
+                        continue
                     start = next(n for n in action_nodes if n['label'] == action)
                     end = next(n for n in object_nodes if n['label'] == obj)
                     fig.add_trace(go.Scatter(
@@ -147,6 +200,8 @@ def create_main_graph(_):
             # Second objects (blue dashed lines)
             if (action, '2') in skill_db:
                 for obj in skill_db[(action, '2')]:
+                    if obj not in objects:  # Add this check
+                        continue
                     start = next(n for n in action_nodes if n['label'] == action)
                     end = next(n for n in object_nodes if n['label'] == obj)
                     fig.add_trace(go.Scatter(
@@ -270,4 +325,4 @@ def update_matrix(clickData):
     return fig
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8051)
+    app.run(debug=True, port=8077)

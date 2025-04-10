@@ -82,8 +82,8 @@ Play with [llm.py:ROLE_DESCRIPTION](multi_modal_reasoning/models/llm.py)
 
 Usage:
 1. `sudo leapd` Gesture sensor backend
-2. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=bruno` Gesture detectors
-2. `ros2 multi_modal_reasoning multi_modal_reasoning --name_user bruno` 
+2. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=demo` Gesture detectors
+2. `ros2 multi_modal_reasoning multi_modal_reasoning --name_user demo` 
 
 Parameters:
 1. Common-Set of Gestures set by default: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
@@ -113,3 +113,12 @@ Notes:
 - Pointing gesture (raised point finger) activates Deictic gesture, scene object selection, defined at: `gesture_processor.py:AdaptiveSetup.adaptive_setup`.
 - In this version, scene object locations (for pointing gesture) are set as constants (`scene_getter.scene_makers.mocked_scene_maker.py` loads scene from `scenes` folder).
 - When doing execution, the correct location of scene object is improved based on localizer.
+
+## (optional) Visualization 
+
+Visualize dependencies across existing skills: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
+Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python franka_learning_from_demonstrations_ros2/trajectory_data/skill_visualizer.py` and see `localhost:8076`
+TODO: Visualize merge logs: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_merges.py` and see `localhost:8075`
+
+(super-optional) What I like is to creating shortcut links by using script [/home/imitlearn/lfd_ws/src/franka_hri/hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skill_viewer`, `http://skill_deps`, `http://merge_log`.
+
