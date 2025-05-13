@@ -18,26 +18,26 @@ from tqdm import tqdm
 
 def test_skill_commands():
     # these should be valid
-    assert SkillCommand("stop").is_valid()
-    assert SkillCommand("pick cup1").is_valid()
-    assert SkillCommand("pour cup1 to cup2").is_valid()
+    assert SkillCommand("stop", command_constraints=CONFIG3).is_valid()
+    assert SkillCommand("pick cup1", command_constraints=CONFIG3).is_valid()
+    assert SkillCommand("pour cup1 to cup2", command_constraints=CONFIG3).is_valid()
 
     # these should not be valid
-    assert not SkillCommand("stop cup1").is_valid()
-    assert not SkillCommand("stop cup1 to cup2").is_valid()
-    assert not SkillCommand("pick cup1 cup2").is_valid()
-    assert not SkillCommand("pick cup1 to cup2").is_valid()
-    assert not SkillCommand("pour cup1").is_valid()
-    assert not SkillCommand("pour").is_valid()
+    assert not SkillCommand("stop cup1", command_constraints=CONFIG3).is_valid()
+    assert not SkillCommand("stop cup1 to cup2", command_constraints=CONFIG3).is_valid()
+    assert not SkillCommand("pick cup1 cup2", command_constraints=CONFIG3).is_valid()
+    assert not SkillCommand("pick cup1 to cup2", command_constraints=CONFIG3).is_valid()
+    assert not SkillCommand("pour cup1", command_constraints=CONFIG3).is_valid()
+    assert not SkillCommand("pour", command_constraints=CONFIG3).is_valid()
 
-    assert SkillCommand("pour").target_action == "pour"
-    assert SkillCommand("pour cup1").target_action == "pour"
-    assert SkillCommand("pour cup1").target_object == "cup1"
-    assert SkillCommand("quickly pour cup1").target_action == "pour"
-    assert SkillCommand("quickly pour cup1").target_object == "cup1"
-    assert SkillCommand("quickly pour cup1").action_parameter == "quickly"
-    assert SkillCommand("quickly pour cup1 to cup2").target_object2 == "cup2"
-    assert SkillCommand("quickly pour cup1 to cup2").object_preposition == "to"
+    assert SkillCommand("pour", command_constraints=CONFIG3).target_action == "pour"
+    assert SkillCommand("pour cup1", command_constraints=CONFIG3).target_action == "pour"
+    assert SkillCommand("pour cup1", command_constraints=CONFIG3).target_object == "cup1"
+    assert SkillCommand("quickly pour cup1", command_constraints=CONFIG3).target_action == "pour"
+    assert SkillCommand("quickly pour cup1", command_constraints=CONFIG3).target_object == "cup1"
+    assert SkillCommand("quickly pour cup1", command_constraints=CONFIG3).action_parameter == "quickly"
+    assert SkillCommand("quickly pour cup1 to cup2", command_constraints=CONFIG3).target_object2 == "cup2"
+    assert SkillCommand("quickly pour cup1 to cup2", command_constraints=CONFIG3).object_preposition == "to"
 
 """ When I install this package, I always try to run this function """
 def test_just_to_see_if_works():
@@ -56,7 +56,7 @@ def test_just_to_see_if_works():
         gesture_stamped = [
             [0.4, "cup1"],
         ],
-        role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S),
+        role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S, version="v4"),
         command_constraints=CONFIG3,
         max_new_tokens = 1000,
         temperature = 0.0,
@@ -64,7 +64,7 @@ def test_just_to_see_if_works():
         repetition_penalty = 1.1,
         quantization = 4,
     )
-    merger.save_log("pick cup1", skill_command, [[0.0, "pick"],[0.1, "green"],[0.4, "cup"],], [ [0.4, "cup1"],], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, CONFIG3, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S, quantization=4))
+    merger.save_log("pick cup1", skill_command, [[0.0, "pick"],[0.1, "green"],[0.4, "cup"],], [ [0.4, "cup1"],], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, CONFIG3, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S), quantization=4)
     assert skill_command == SkillCommand("pick cup1"), f"{skill_command} != 'pick cup1'"
     merger.hri.delete()
     rclpy.shutdown()
@@ -118,7 +118,8 @@ def test_just_alternatives():
             O=["cup1", "container1", "bowl1"],
             S=S, 
         ), 
-        command_constraints=CONFIG3
+        command_constraints=CONFIG3,
+        quantization=4
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -146,7 +147,8 @@ def test_just_alternatives2():
             A=CONFIG3["actions"], 
             O=["cup1", "box", "plate1"]
         ), 
-        command_constraints=CONFIG3
+        command_constraints=CONFIG3,
+        quantization=4
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -170,7 +172,8 @@ def test_just_alternatives3():
             A=CONFIG3["actions"], 
             O=["cup1", "box", "plate1"]
         ), 
-        command_constraints=CONFIG3
+        command_constraints=CONFIG3,
+        quantization=4
     )
     assert skill_command == SkillCommand("pick box")
     merger.hri.delete()
@@ -183,53 +186,53 @@ def test_lm():
     print("(1/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "this"] ],
                                  gesture_stamped = [ [0.4, "container1"] ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick container1"), f"{skill_command} != 'pick container1'"
     print("(2/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Push"], [0.4, "this"] ],
                                  gesture_stamped = [ [0.4, "bowl1"] ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("push bowl1"), f"{skill_command} != 'push bowl1'"
     print("(3/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pour"], [0.1, "cup1"], [0.4, "to"] ],
                                  gesture_stamped = [ [0.4, "bowl1"] ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pour cup1 to bowl1"), f"{skill_command} != 'pour cup1 to bowl1'"
     print("(4/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "quickly"], [0.1, "pour"], [0.4, "cup1"], [0.6, "to"], [0.8, "bowl1"] ],
                                  gesture_stamped = [  ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("quickly pour cup1 to bowl1"), f"{skill_command} != 'quickly pour cup1 to bowl1'"
     print("(5/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "this"], [0.5, "right"], [0.6, "here"] ],
                                  gesture_stamped = [ [0.7, "bowl1"] ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick bowl1"), f"{skill_command} != 'pick bowl1'"
     print("(6/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "this"], [0.5, "right"], [0.6, "here"] ],
                                  gesture_stamped = [ [0.55, "bowl1"] ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick bowl1"), f"{skill_command} != 'pick bowl1'"
     print("(7/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "a"], [0.6, "bowl"], [0.7, "pen"] ],
                                  gesture_stamped = [ ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick bowl1"), f"{skill_command} != 'pick bowl1'"
     print("(8/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "a"], [0.7, "object"] ],
                                  gesture_stamped = [ [0.8, "cup1"] ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick cup1"), f"{skill_command} != 'pick cup1'"
     print("(9/9)")
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "a"], [0.7, "wide"], [0.8, "blue"], [0.9, "object"] ],
                                  gesture_stamped = [ ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick container1"), f"{skill_command} != 'pick container1'"
     print("(bonus)")
     
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"] ],
                                  gesture_stamped = [ ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick cup1"), f"{skill_command} != 'pick cup1'"
     print("Done")
 
@@ -246,7 +249,7 @@ def test_unsuccessful():
     S = "In the scene are three objects. The cup1 is big red cup. The container1 is wide blue container. bowl1 is green small bowl."
     skill_command = merger.merge(voice_stamped = [[0.0, "Pick"], [0.1, "up"], [0.4, "this"] ],
                                  gesture_stamped = [ ],
-                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S))
+                                 role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "container1", "bowl1"], S=S), command_constraints=CONFIG3, quantization=4)
     assert skill_command == SkillCommand("pick this"), f"{skill_command} != 'pick this'"
 
     merger.hri.delete()

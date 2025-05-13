@@ -433,6 +433,7 @@ def main():
     parser.add_argument('--top_p', type=float, help='top_p', default=1.0)
     parser.add_argument('--repetition_penalty', type=float, help='repetition penalty', default=1.1)
     parser.add_argument('--max_new_tokens', type=int, help='Max generated tokens', default=1000)
+    parser.add_argument('--role_version', type=str, help='Role version spec', default="v4")
     args = parser.parse_args()
 
     rclpy.init()

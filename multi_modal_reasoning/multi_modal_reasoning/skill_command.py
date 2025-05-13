@@ -134,7 +134,7 @@ class SkillCommand():
         response = response.replace("'", "")
         response = response.replace("a can", "can")
         response_list = response.split(",")
-        r = {"property": "", "target_action": "", "relationship": "", "target_object": "", "target_object2": ""}
+        r = {"property": "", "target_action": "", "relationship": "", "target_object": "", "target_object2": "", "target_object_color": ""}
         
         for i in range(len(response_list)):
             s = remove_article(response_list[i]) # get rid of a, the..
