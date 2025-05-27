@@ -36,7 +36,7 @@ class HCI(SceneGetter, UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
                  nlp_model_name = None,
                  tts_enabled = None,
                  stt_type: str = "deterministic",
-                 stt_enabled: bool = False,
+                 stt_enabled = None,
                  ):
         if name_user is not None: self.user = name_user
         if nlp_model_name is not None: self.nlp_model_name = nlp_model_name
@@ -50,7 +50,7 @@ class HCI(SceneGetter, UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
-        if stt_enabled:
+        if self.stt_enabled:
             if self.stt_type == "deterministic":
                 self.stt = SpeechToTextModel(device="cuda") # you might want to offload to cpu
             elif self.stt_type == "probabilistic":

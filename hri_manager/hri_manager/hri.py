@@ -37,13 +37,13 @@ class HRI(HCI, Feedback_for_HRI, LfD):
         #     self.speak("Skill Command is Not valid, returning!")
         #     return
         
-        if skillcommand.target_action in skillcommand.CONFIG["zero_object_actions"]:
+        if skillcommand.target_action in skillcommand.command_constraints["zero_object_actions"]:
             self.play_skill(name_skill=skillcommand.target_action, simplify=False)
 
-        if skillcommand.target_action in skillcommand.CONFIG["single_object_actions"]:
+        if skillcommand.target_action in skillcommand.command_constraints["single_object_actions"]:
             self.play_skill(name_skill=skillcommand.target_action+"_"+skillcommand.target_object, name_template=skillcommand.target_object, simplify=False)
 
-        if skillcommand.target_action in skillcommand.CONFIG["double_object_actions"]:
+        if skillcommand.target_action in skillcommand.command_constraints["double_object_actions"]:
             self.play_skill(name_skill=skillcommand.target_action+"1_"+skillcommand.target_object, name_template=skillcommand.target_object, simplify=False)
             self.play_skill(name_skill=skillcommand.target_action+"2_"+skillcommand.target_storage, name_template=skillcommand.target_storage, simplify=False)
 

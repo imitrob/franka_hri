@@ -31,8 +31,8 @@ class ReasoningMerger():
                 model_name: str,
                 dry_run: bool = True,
                 interpret_format: str = "deterministic",
-                tts_enabled = False,
-                stt_enabled = False,
+                tts_enabled = True,
+                stt_enabled = True,
                 ):
         """_summary_
 
@@ -63,7 +63,7 @@ class ReasoningMerger():
             )
         self.model_name = model_name
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
-        self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, qos_profile=qos)
+        self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, 10)
         self.hri.create_subscription(String, '/recorded_file', self.receive_voice_record, qos_profile=qos)
         self.record_queue = []
         self.gestures_queue = []
@@ -426,7 +426,7 @@ def main():
     parser.add_argument('--name_model', type=str, help='The user name', default="LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct")
     # parser.add_argument('--name_model', type=str, help='The user name', default="ibm-granite/granite-3.1-2b-instruct")
     
-    parser.add_argument('--quantization', type=int, help='4,8,16,32 bits', default=8)
+    parser.add_argument('--quantization', type=int, help='4,8,16,32 bits', default=4)
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=False)
     parser.add_argument('--config_name', type=str, help='config_name', default="CONFIG3")
     parser.add_argument('--temperature', type=float, help='temperature', default=0.0)
