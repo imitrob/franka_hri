@@ -20,6 +20,10 @@ class SentenceProcessor():
         Args:
             model_name (str, optional): _description_. Defaults to "SultanR/SmolTulu-1.7b-Reinforced".
         """
+        print(f"Starting 3/3 Init LLM", flush=True)
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
         if quantization == 32:
             quantization_config = None
             torch_dtype = torch.float32
@@ -41,6 +45,10 @@ class SentenceProcessor():
             quantization_config=quantization_config
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        print(f"3/3 Inited LLM", flush=True)
+        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+
 
     def delete(self):
         del self.model

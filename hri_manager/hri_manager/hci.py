@@ -46,7 +46,7 @@ class HCI(SceneGetter, UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
         super(HCI, self).__init__()
 
         assert Path(f"{hri_manager.package_path}/links/{self.user}_links.yaml").is_file()
-        print(f"1/3 Init STT: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"0/3 VRAM memory left: {get_gpu_memory()}", flush=True)
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
@@ -59,13 +59,13 @@ class HCI(SceneGetter, UserPreferenceGetter, Feedback_for_HRI, SpinningRosNode):
                 self.stt = SpeechToTextModel(device="cuda")
 
         if self.tts_enabled:
-            print(f"2/3 Init TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
+            print(f"1/3 Inited SST: VRAM memory left: {get_gpu_memory()}", flush=True)
             print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
             print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
             self.tts = Chatterbox(device="cuda") # you might want to offload to cpu
         self.rec = AudioRecorder()
-        print(f"3/3 Init LM: VRAM memory left: {get_gpu_memory()}", flush=True)
+        print(f"2/3 Inited TTS: VRAM memory left: {get_gpu_memory()}", flush=True)
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 

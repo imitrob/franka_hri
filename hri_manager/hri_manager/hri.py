@@ -74,6 +74,9 @@ class HRI(HCI, Feedback_for_HRI, LfD):
         #     print(f"Template action is invalid {name_template} not in {name_skill}", flush=True)
         #     return
         
+        if not self.set_localizer_client.wait_for_service(timeout_sec=5.0):
+            self.speak(f"Localization service is unavailable! Returning")
+            return
         self.set_localizer_client.call(SetTemplate.Request(template_name=name_template))
         self.move_template_start()
         self.active_localizer_client.call(Trigger.Request())

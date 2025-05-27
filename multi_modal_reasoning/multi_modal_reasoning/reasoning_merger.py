@@ -62,13 +62,11 @@ class ReasoningMerger():
                 stt_enabled = stt_enabled,
             )
         self.model_name = model_name
-        qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
-        self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, 10)
-        self.hri.create_subscription(String, '/recorded_file', self.receive_voice_record, qos_profile=qos)
+        self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, qos_profile=QoSProfile(depth=10, reliability=QoSReliabilityPolicy.RELIABLE))
+        self.hri.create_subscription(String, '/recorded_file', self.receive_voice_record, qos_profile=QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT))
         self.record_queue = []
         self.gestures_queue = []
 
-        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name)
         self.hri.superwaitexec = "" 
 
     def name(self):
@@ -86,6 +84,7 @@ class ReasoningMerger():
                 else: raise Exception
 
                 self.hri.superwaitexec = ""
+                self.hri.speak(f"Press enter to continue or minus to try again!")
                 playsound("/home/imitlearn/Downloads/alert1.wav")
                 # User presses Enter to execute or minus to to try again
                 while self.hri.superwaitexec == "":
@@ -215,15 +214,8 @@ class ReasoningMerger():
         print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
         
         words = np.array(sorted_sentence)[:,1]
-        
-        
-        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
-        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
         self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name, quantization=quantization)
-
-        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
-        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
 
         if self.interpret_format == "deterministic":
@@ -444,7 +436,7 @@ def main():
         merger = ReasoningMerger(name_user=args.name_user, model_name=args.name_model, interpret_format=args.interpret_format, dry_run=args.dry_run)
 
     print()
-    merger.hri.speak(f"Program is ready!")
+    merger.hri.speak(f"Ready! Hold a plus to record voice.")
     print()
 
     merger.spin(
