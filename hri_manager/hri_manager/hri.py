@@ -10,7 +10,7 @@ from std_srvs.srv import Trigger
 from multi_modal_reasoning.skill_command import SkillCommand
 from naive_merger.utils import cc
 
-class HRI(HCI, Feedback_for_HRI, LfD):
+class HRI(HCI, Feedback_for_HRI):#, LfD):
     def __init__(self,
                 name_user: str,
                 tts_enabled: bool = True,
@@ -26,16 +26,24 @@ class HRI(HCI, Feedback_for_HRI, LfD):
         self.stt_type = stt_type
         self.stt_enabled = stt_enabled
         super(HRI, self).__init__()
-        self.start() # Starts robotic controller
+        # self.start() # Starts robotic controller
+
+        self.lfd = None
+
+    def init_lfd(self):
+        self.lfd = LfD()
+        self.lfd.start()
+
 
     def play_skillcommand(self, skillcommand: SkillCommand):
         
         print(f"{cc.W}Playing skill command: {skillcommand}{cc.E}")
 
         # TODO: Check skill validity        
-        # if not skillcommand.is_valid(): 
-        #     self.speak("Skill Command is Not valid, returning!")
-        #     return
+        if not skillcommand.is_valid(): 
+            self.speak("Skill Command is Not valid, returning!")
+            return
+        
         
         if skillcommand.target_action in skillcommand.command_constraints["zero_object_actions"]:
             self.play_skill(name_skill=skillcommand.target_action, simplify=False)
@@ -51,6 +59,8 @@ class HRI(HCI, Feedback_for_HRI, LfD):
     def play_skill(self, name_skill: str, name_template: str= "", skill_parameter: float = None, simplify=True):
         """ When simplify==True, target_object == target_actopm
         """
+        if self.lfd is None: self.init_lfd()
+
         if name_skill == "":
             self.speak(f"No action found, try again")
             return 
@@ -74,21 +84,21 @@ class HRI(HCI, Feedback_for_HRI, LfD):
         #     print(f"Template action is invalid {name_template} not in {name_skill}", flush=True)
         #     return
         
-        if not self.set_localizer_client.wait_for_service(timeout_sec=5.0):
+        if not self.lfd.set_localizer_client.wait_for_service(timeout_sec=5.0):
             self.speak(f"Localization service is unavailable! Returning")
             return
-        self.set_localizer_client.call(SetTemplate.Request(template_name=name_template))
-        self.move_template_start()
-        self.active_localizer_client.call(Trigger.Request())
-        self.compute_final_transform() 
+        self.lfd.set_localizer_client.call(SetTemplate.Request(template_name=name_template))
+        self.lfd.move_template_start()
+        self.lfd.active_localizer_client.call(Trigger.Request())
+        self.lfd.compute_final_transform() 
 
         try:
             if skill_parameter is not None:
                 self.load_morph_trajectory(skill_parameter, morph_parameter=skill_parameter)
             else:
-                self.load(name_skill)
+                self.lfd.load(name_skill)
             print(f"Execution", flush=True)
-            self.execute()
+            self.lfd.execute()
         except KeyboardInterrupt: # not working, because there is another thread (Feedback) that shutsdown then KeyboardInterrupt
             pass
 

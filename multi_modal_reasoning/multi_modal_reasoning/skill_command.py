@@ -163,6 +163,8 @@ class SkillCommand():
             return cls("", predicted, command_constraints)
 
     def is_valid(self):
+        if self.command == "": return False
+
         not_valid = ""
         # Check format
         if not isinstance(self.action_parameter, str) and self.action_parameter is not None: not_valid += f"{self.action_parameter} is not str or None"
@@ -171,15 +173,16 @@ class SkillCommand():
         if not isinstance(self.target_object2, str) and self.target_object2 is not None: not_valid += f"{self.target_object2} is not str or None"
         if not isinstance(self.object_preposition, str) and self.object_preposition is not None: not_valid += f"{self.object_preposition} is not str or None"
 
-        if self.target_object is not None:
-            if self.target_object[-1] not in "0123456789":
-                not_valid += "object must have its id as last char"
-        if self.object_preposition is not None:
-            if self.target_object2 is None:
-                not_valid += "object must have its id as last char"
-        if self.target_object2 is not None:
-            if self.target_object2[-1] not in "0123456789":
-                not_valid += "object must have its id as last char"
+        # REMOVED TEMPORARILY AS THIS IS NOT VALID ANYMORE
+        # if self.target_object is not None:
+        #     if self.target_object[-1] not in "0123456789":
+        #         not_valid += "object must have its id as last char"
+        # if self.object_preposition is not None:
+        #     if self.target_object2 is None:
+        #         not_valid += "object must have its id as last char"
+        # if self.target_object2 is not None:
+        #     if self.target_object2[-1] not in "0123456789":
+        #         not_valid += "object must have its id as last char"
 
         if self.target_action in self.command_constraints["zero_object_actions"]:
             if self.target_object is not None or self.target_object2 is not None:

@@ -83,7 +83,7 @@ Play with [llm.py:ROLE_DESCRIPTION](multi_modal_reasoning/models/llm.py)
 Usage:
 1. `sudo leapd` Gesture sensor backend
 2. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=demo` Gesture detectors
-2. `ros2 multi_modal_reasoning multi_modal_reasoning --name_user demo` 
+2. `ros2 run ulti_modal_reasoning multi_modal_reasoning --name_user demo` 
 
 Parameters:
 1. Common-Set of Gestures set by default: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
