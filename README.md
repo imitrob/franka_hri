@@ -95,14 +95,13 @@ Parameters:
 4. User preferences: `hri_manager/links/<username>_links.yaml` (var)
 5. Merger params:
   - `--name_user`, The user name, `default="casper"` (var)
-  - `--name_model`, The user name, `default="SultanR/SmolTulu-1.7b-Reinforced"`
+  - `--name_model`, The user name, `default="SultanR/SmolTulu-1.7b-Instruct"`
   - `--dry_run`, Dont play skills, `default=True`
   - `--temperature`, 0.0 is deterministic, `default=0.0`
   - `--top_p`, `default=1.0`, 
   - `--repetition_penalty`, `default=1.1`, 
   - `--max_new_tokens`, max words output, `default=1000`
   - Choose role description `version` manually at `role_setup.py`
-  - `--quantization`, 4,8,16,32 bit quantitatization
   - `--config_name`, defines valid actions for constraining the skillcommand
 
 

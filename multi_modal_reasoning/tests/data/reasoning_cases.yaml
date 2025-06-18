@@ -1,0 +1,59 @@
+scene: >
+  In the scene are three objects. The cup1 is big red cup. The container1
+  is wide blue container. bowl1 is green small bowl.
+
+cases:
+  - id: pick-cup-voice 
+    voice: [[0.0, "pick"], [0.1, "green"], [0.4, "cup"]]
+    gesture: [[0.4, "cup1"]]
+    expected: "pick cup1"
+
+  - id: pick-container-voice+gesture
+    voice:    [[0.0, "Pick"], [0.1, "up"], [0.4, "this"]]
+    gesture:  [[0.4, "container1"]]
+    expected: "pick container1"
+
+  - id: push-bowl-voice+gesture
+    voice:    [[0.0, "Push"], [0.4, "this"]]
+    gesture:  [[0.4, "bowl1"]]
+    expected: "push bowl1"
+
+  - id: pour-cup-to-bowl
+    voice:    [[0.0, "Pour"], [0.1, "cup1"], [0.4, "to"]]
+    gesture:  [[0.4, "bowl1"]]
+    expected: "pour cup1 to bowl1"
+
+  - id: quickly-pour-no-gesture
+    voice:    [[0.0, "quickly"], [0.1, "pour"], [0.4, "cup1"], [0.6, "to"], [0.8, "bowl1"]]
+    gesture:  []
+    expected: "quickly pour cup1 to bowl1"
+
+  - id: pick-bowl-late-gesture
+    voice:    [[0.0, "Pick"], [0.1, "up"], [0.4, "this"], [0.5, "right"], [0.6, "here"]]
+    gesture:  [[0.7, "bowl1"]]
+    expected: "pick bowl1"
+
+  - id: pick-bowl-voice-late-gesture
+    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "a"], [0.6, "bowl"], [0.7, "pen"]]
+    gesture: []
+    expected: "pick bowl1"
+
+  - id: pick-cup1-voice-gesture
+    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "a"], [0.7, "object"]]
+    gesture: [[0.8, "cup1"]]
+    expected: "pick cup1"
+
+  - id: pick-container1-voice-gesture
+    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "a"], [0.7, "wide"], [0.8, "blue"], [0.9, "object"]]
+    gesture: []
+    expected: "pick container1"
+
+  - id: pick-cup1-voice-gesture-late
+    voice: [[0.0, "Pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-this-uncertain
+    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "this"]]
+    gesture: []
+    expected: "pick this"

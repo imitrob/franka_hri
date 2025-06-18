@@ -177,9 +177,9 @@ class SkillCommand():
         # if self.target_object is not None:
         #     if self.target_object[-1] not in "0123456789":
         #         not_valid += "object must have its id as last char"
-        # if self.object_preposition is not None:
-        #     if self.target_object2 is None:
-        #         not_valid += "object must have its id as last char"
+        if self.object_preposition is not None:
+            if self.target_object2 is None:
+                not_valid += "object must have its id as last char"
         # if self.target_object2 is not None:
         #     if self.target_object2[-1] not in "0123456789":
         #         not_valid += "object must have its id as last char"

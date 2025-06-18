@@ -68,7 +68,7 @@ class ReasoningMerger():
         self.gestures_queue = []
 
         self.hri.superwaitexec = "" 
-        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name, quantization=16)
+        self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name)
 
     def name(self):
         return self.model_name.split("/")[-1]
@@ -197,7 +197,6 @@ class ReasoningMerger():
             voice_stamped, 
             command_constraints: dict[str, list], # valid (zero-object/single-object/double-object) actions
             role_description: str, # for llm
-            quantization, # REMOVED TEMPORARILY
             *args, **kwargs # llm params: temperature, top_p, repetition_penalty, max_generated_tokens
             ):
         """ Main merge function """
@@ -215,9 +214,6 @@ class ReasoningMerger():
         print(f"{cc.H}Sorted stamped sentence{cc.E}: {sorted_sentence}")
         
         words = np.array(sorted_sentence)[:,1]
-
-        # self.hri.sentence_processor = SentenceProcessor(model_name=self.hri.nlp_model_name, quantization=quantization)
-
 
         if self.interpret_format == "deterministic":
             final_sentence = " ".join(words[words!=None])
@@ -266,7 +262,7 @@ class ReasoningMerger():
         np.savez(f"{multi_modal_reasoning.path}/saved_inputs/{subfolder}/save_{i}", voice_command=np.array(voice_command), gesture_command=np.array(gesture_command))
 
     def save_log(self, true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names, 
-                 max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description, quantization):
+                 max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description):
         data = {
             "successful": SkillCommand(true_sentence) == skill_command,
             "true_sentence": true_sentence, 
@@ -282,8 +278,7 @@ class ReasoningMerger():
             "top_p": top_p, 
             "repetition_penalty": repetition_penalty, 
             "cfg": cfg, 
-            "role_description": role_description, 
-            "quantization": quantization, # REMOVED TEMPORARILY
+            "role_description": role_description,
         }
     
         i = 0
@@ -423,7 +418,6 @@ def main():
     # parser.add_argument('--name_model', type=str, help='', default="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B") # so stupid model
     # parser.add_argument('--name_model', type=str, help='', default="google/gemma-3-1b-it")
 
-    parser.add_argument('--quantization', type=int, help='4,8,16,32 bits', default=4) # REMOVED TEMPORARILY
     parser.add_argument('--dry_run', type=bool, help='Dont play skills', default=False)
     parser.add_argument('--config_name', type=str, help='config_name', default="CONFIG_DEMO")
     parser.add_argument('--temperature', type=float, help='temperature', default=0.0)
@@ -451,7 +445,6 @@ def main():
         top_p=args.top_p, 
         repetition_penalty=args.repetition_penalty,
         max_new_tokens=args.max_new_tokens,
-        quantization = args.quantization, # REMOVED TEMPORARILY
     )
     
 

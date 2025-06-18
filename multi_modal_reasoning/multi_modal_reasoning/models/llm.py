@@ -10,30 +10,32 @@ class ProgressStoppingCriteria(StoppingCriteria):
         self.pbar.update(1)
         return False  # Never stop early, just track progress
 
+QUANTIZATION = 16 # quickest
+
 class SentenceProcessor():
-    def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Reinforced", quantization=16):
+    def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Instruct"):
         """Good models for instruct:
             model_name = Qwen/Qwen2.5-0.5B-Instruct (1GB VRAM)
-            model_name = SultanR/SmolTulu-1.7b-Reinforced (3.3GB VRAM)
+            model_name = SultanR/SmolTulu-1.7b-Instruct (3.3GB VRAM)
             deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 
         Args:
-            model_name (str, optional): _description_. Defaults to "SultanR/SmolTulu-1.7b-Reinforced".
+            model_name (str, optional): _description_. Defaults to "SultanR/SmolTulu-1.7b-Instruct".
         """
         print(f"Starting 3/3 Init LLM", flush=True)
         print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
         print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
-        if quantization == 32:
+        if QUANTIZATION == 32:
             quantization_config = None
             torch_dtype = torch.float32
-        elif quantization == 16:
+        elif QUANTIZATION == 16:
             quantization_config = None
             torch_dtype = torch.float16
-        elif quantization == 8:
+        elif QUANTIZATION == 8:
             quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             torch_dtype = torch.float32
-        elif quantization == 4:
+        elif QUANTIZATION == 4:
             quantization_config = BitsAndBytesConfig(load_in_4bit=True)
             torch_dtype = torch.float32
 
