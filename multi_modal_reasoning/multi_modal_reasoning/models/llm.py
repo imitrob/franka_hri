@@ -53,6 +53,7 @@ class SentenceProcessor():
 
 
     def delete(self):
+        self.model.to("cpu")
         del self.model
 
     def predict(self, 

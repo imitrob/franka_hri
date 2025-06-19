@@ -2,7 +2,6 @@
 from multi_modal_reasoning.reasoning_merger import ReasoningMerger
 import rclpy
 from multi_modal_reasoning.role_setup import get_role_description
-from multi_modal_reasoning.generate_dataset import CONFIG3
 from multi_modal_reasoning.skill_command import SkillCommand
 
 import pathlib
@@ -17,6 +16,16 @@ with DATA_PATH.open() as f:
 SCENE: str = _DATA["scene"]
 _CASES: list[dict] = _DATA["cases"]
 
+COMCON = {
+    "zero_object_actions": [],
+    "single_object_actions": ["pick", "push"],
+    "double_object_actions": ["pour"],
+    "actions": ["pick", "push", "pour"], # all actions
+    "adjectives": ["fast","slow","force"],
+    #"prepositions": ["to"], #["to", "into", "onto", "from"],
+    #"object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
+}
+
 # 2. Common kwargs for every merger.merge() call                              #
 _COMMON_KWARGS = dict(
     role_description=get_role_description(
@@ -24,7 +33,7 @@ _COMMON_KWARGS = dict(
         O=["cup1", "container1", "bowl1"],
         S=SCENE,
     ),
-    command_constraints=CONFIG3,
+    command_constraints=COMCON,
 )
 
 # 3. Build the parameter list for pytest                                      #
@@ -46,24 +55,24 @@ def ros_context():
     yield
     rclpy.shutdown()    
 
-
-
 @pytest.fixture(
     scope="module",
     params=[
-        pytest.param("SultanR/SmolTulu-1.7b-Instruct",  id="smoltulu-1.7b"),
-        pytest.param("Qwen/Qwen3-0.6B",                 id="qwen3-0.6b"),
+        pytest.param("Qwen/Qwen3-1.7B", id="qwen3"),
+        pytest.param("LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", id="exaone"),
+        pytest.param("ibm-granite/granite-3.1-2b-instruct", id="granite"),
+        pytest.param("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", id="deepseek"),
     ],
 )
-def merger(request) -> ReasoningMerger:
-    """Create a ReasoningMerger for each model under test."""
-    return ReasoningMerger(
+def merger(request):
+    m = ReasoningMerger(
         name_user="casper",
         model_name=request.param,
         tts_enabled=False,
     )
-
-
+    yield m                           # ---- tests run here ----
+    m.hri.delete()                    # tear-down after last test in module
+    
 # 5. The single parametrised test                                             #
 @pytest.mark.parametrize("voice, gesture, expected", _PARAMS)
 def test_reasoning_cases(merger: ReasoningMerger, voice, gesture, expected):
@@ -73,24 +82,4 @@ def test_reasoning_cases(merger: ReasoningMerger, voice, gesture, expected):
         **_COMMON_KWARGS,
     )
     # merger.hri.delete()
-    assert result == expected
-
-
-
- 
-
-
-if __name__ == "__main__":
-    # test_skill_commands()
-    # test_just_to_see_if_works()
-    test_reasoning_cases()
-    # test_just_probabilistic()
-    # test_just_alternatives()
-    # test_just_alternatives2()
-    # test_just_alternatives3()
-
-    # test_lm()
-    # test_unsuccessful()
-
-    # test_alignment_noise()
-    # test_on_saved_data()
+    assert result == expected, f"SEE THIS: PREDICTED: {result} != GROUND TRUTH: {expected}"

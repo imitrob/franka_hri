@@ -31,9 +31,9 @@ dependencies:
 - pynput
 - scipy
 - roboticstoolbox-python
-- pymc
+- pymc=5.21.1 # (version might be omitted)
 - fastdtw
-- pytorch=2.3.1 # make sure the cpu version is NOT installed
+- pytorch=2.3.1 # make sure the cpu version is NOT installed AND make sure all torch/vision/audio are from pytorch channel
 - pytorch-cuda=11.8
 - cudatoolkit=11.8
 - torchvision
@@ -49,6 +49,9 @@ dependencies:
 - gdown
 - nltk # for whisperx
 - tinyxml2>=10.0.0
+- setuptools<65 # Due to ros-humble-desktop binaries
+- pip
+- pytest<8 # bigger version gets an error in VSCode
 - pip:
   - phonemizer
   - munch
@@ -57,8 +60,8 @@ dependencies:
   - soundfile
   - playsound
   - panda-python
-  - faster-whisper==1.1.0 
-  - ctranslate2==3.24.0 
+  #- faster-whisper==1.1.0 
+  #- ctranslate2==3.24.0 
   - librosa
   - fuzzywuzzy
   - pygobject
