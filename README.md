@@ -119,5 +119,5 @@ Visualize dependencies across existing skills: `lfdenv; python franka_hri/hri_ma
 Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python franka_learning_from_demonstrations_ros2/trajectory_data/skill_visualizer.py` and see `localhost:8076`
 TODO: Visualize merge logs: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_merges.py` and see `localhost:8075`
 
-(super-optional) What I like is to creating shortcut links by using script [/home/imitlearn/lfd_ws/src/franka_hri/hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skill_viewer`, `http://skill_deps`, `http://merge_log`.
+(super-optional) What I like is to creating shortcut links by using script [hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skills`, `http://skill_links`, `http://hri_log`.
 

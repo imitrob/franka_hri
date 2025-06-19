@@ -13,9 +13,9 @@ NC='\033[0m' # No Color
 
 # Data list of target URLs and ports - modify this as needed
 TARGETS=(
-    "skill_viewer 8076"
-    "skill_deps 8077"
-    "merge_log 8075"
+    "skills 8076"
+    "skill_links 8077"
+    "hri_log 8075"
     # Add more targets here as "name port" pairs
 )
 

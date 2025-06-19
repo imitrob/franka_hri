@@ -52,6 +52,8 @@ dependencies:
 - setuptools<65 # Due to ros-humble-desktop binaries
 - pip
 - pytest<8 # bigger version gets an error in VSCode
+- dash
+- plotly
 - pip:
   - phonemizer
   - munch
