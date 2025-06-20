@@ -30,6 +30,24 @@ source install/setup.bash
 
 bash src/teleop_gesture_toolbox/gesture_detector/leap_motion_install.sh
 ```
+<hr>
+
+**20 June 2025 Observed Problem Hotfix**: 
+
+1) some pip installed packages installs the numpy 2.2.6 through pip, we don't want this, right now, let's uninstall it:
+
+```
+pip uninstall numpy # Confirm (Y)
+mamba install -c conda-forge numpy==1.26.4 --force-reinstall # reinstall the conda numpy package
+```
+2) This might be fixed in next kokoro version, however, change the following line:
+/home/doma/miniconda3/envs/gesturenlu2/lib/python3.11/site-packages/misaki/espeak.py:10
+```
+#EspeakWrapper.set_data_path(espeakng_loader.get_data_path())
+EspeakWrapper.data_path = espeakng_loader.get_data_path()
+```
+<hr>
+
 ROS2 installs the packages to build folder. Make a symbolic links to use materials such as trajectories, configs, templates.
 ```
 ln -s ~/robot_ws/src/franka_learning_from_demonstrations_ros2/object_localization/cfg ~/robot_ws/build/object_localization/cfg

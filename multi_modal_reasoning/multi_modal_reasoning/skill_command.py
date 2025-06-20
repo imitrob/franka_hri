@@ -81,32 +81,46 @@ class SkillCommand():
 
     @classmethod
     def from_predicted(cls, response, command_constraints):
+        """ Parsing the LLM string output to `brackets`. """
+        
         predicted = deepcopy(response)
         response = response.lower()
+        
         """ response is raw string output from LLM, all format correction is here """
-        if "```plaintext" in response:
+        
+        # Parse Option 1: Output as: <reasoning> ```plaintext <result>```
+        if "```plaintext" in response: # 
+
             response = response.split("```")
             response = response[-2]
             response = response.replace("\n", "")
             response = response.strip()
             response = response.split("plaintext")[-1]
+        # Parse Option 2: Output as: <reasoning> ```<result>```
         if "```" in response:
+            
             response = response.split("```")
             response = response[-2]
+        # Parse Option 3: Output as: <reasoning> `<result>`
         elif "`" in response:
+            
             response = response.split("`")
             if len(response) == 2:
                 response = response[-1]
             else:
                 try:
-                    if "action:" in response[-2]:
+                    if "action:" in response[-2]: # Output as: <reasoning> `action: <action>, <item2>: <val2>, ...`
                         response = response[-2]
-                    elif "action:" in response[-3]:
+
+                    elif "action:" in response[-3]: # Output as: <reasoning> `action: <action>, <item2>: <val2>, ...` `<something useless>`
                             response = response[-3]
-                    elif "action:" in response[-4]:
+
+                    elif "action:" in response[-4]: # Output as: <reasoning> `action: <action>, <item2>: <val2>, ...` `<useless1> <useless2>`
                             response = response[-4]
-                    elif "action:" in response[-5]:
+
+                    elif "action:" in response[-5]: # Output as: <reasoning> `action: <action>, <item2>: <val2>, ...` `<useless1> <useless2> <useless3>`
                             response = response[-5]
+
                     elif "action:" in response[-6]:
                             response = response[-6]
                     else:
@@ -114,6 +128,7 @@ class SkillCommand():
                 except IndexError: 
                     return cls("", predicted, command_constraints)
 
+        # Parse Option 4: Output as: <reasoning> **action:** <action>, **<item2>**: <val2>, ...
         elif "**action:" in response:
             if "**action:**" in response:
                 response = response.split("**action:")[-1]
@@ -125,6 +140,7 @@ class SkillCommand():
             else:
                 response = response.split("**")
                 response = response[-2]
+        # Parse Option 5: Output as: <reasoning> \n action: <action>, <item2>: <val2>, ...
         else:
             response = response.split("\n")[-1].strip()
             

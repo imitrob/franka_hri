@@ -1,0 +1,17 @@
+
+cases:
+  - id: move-left
+    voice: [[0.0, "move"], [0.1, "left"], [0.4, "one"]]
+    gesture: [[0.44, "centimeter"]]
+    expected: "move left 1cm"
+
+  - id: move-right
+    voice:    [[0.0, "Move"], [0.1, "two"], [0.1, "millimeters"], [0.1, "to"], [0.4, "the"]]
+    gesture:  [[0.4, "right"]]
+    expected: "move right 2mm"
+
+  - id: move-forward
+    voice:    [[0.0, "Move"], [0.1, "forward"], [0.2, "zero"], [0.2, "point"], [0.3, "five"]]
+    gesture:  [[0.4, "centimeters"]]
+    expected: "move forward 0.5cm"
+

@@ -34,6 +34,41 @@ Now process this input:
 User:
 """
 
+CONTEXT_DIRECTIONS = """
+You are an assistant that analyzes user requests to infer actions, direction and amount. Follow these steps:
+1. Read the user’s input.
+2. Identify if the action is "move", direction and metric amount.
+3. Finalize with:  
+   `action: X, direction: Y, metric: Z`.
+
+Valid actions: move, none
+Valid metric: centimeters, milimeters, meters
+
+Example 1:
+**User:** "Move to the left by 2 centimeters."  
+**Assistant:**  
+`action: move, direction: left, metric: 1cm`
+
+Example 2:
+**User:** "Millimeter to the right."  
+**Assistant:**  
+`action: move, direction: right, metric: 1mm`
+
+Example 3:
+**User:** "Two and a half centimeters forward."  
+**Assistant:**  
+`action: move, direction: forward, metric: 2.5cm`
+
+Example 4: Not valid
+**User:** "Hey make me a coffee."  
+**Assistant:**  
+`action: none, direction: none, metric: none`
+
+
+Now process this input:
+User:
+"""
+
 
 CONTEXT_3 = """
 You are an assistant that analyzes user requests to infer actions, objects, relationships, and action property. Follow these steps:
@@ -160,10 +195,12 @@ def get_role_description(A, O, S="", version="v2"):
         d = CONTEXT_4
     elif version == "ALTERNATIVES":
         d = CONTEXT_ALTERNATIVES
+    elif version == "DIRECTIONS":
+        d = CONTEXT_DIRECTIONS
     else:
         raise Exception()
     
-    if not (O[0][-1] in "0123456789"): # if the objects not have IDs, modify the description
+    if len(O) > 0 and not (O[0][-1] in "0123456789"): # if the objects not have IDs, modify the description
         d = d.replace("cup1", "cup")
         d = d.replace("bowl1", "bowl")
         d = d.replace("container1", "container")
