@@ -1,4 +1,4 @@
-name: gesturenlu
+name: gesturenlu2
 channels:
 - pytorch
 - nvidia
@@ -61,6 +61,7 @@ dependencies:
   - phonemizer
   - munch
   - kokoro
+  - misaki==0.8.0
   - py-espeak-ng
   - soundfile
   - playsound
@@ -69,4 +70,4 @@ dependencies:
   - ctranslate2==4.6.0
   - librosa
   - fuzzywuzzy
-  - pygobject
+  # - pygobject

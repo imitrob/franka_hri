@@ -22,6 +22,7 @@ def dummy_merger():
     )
 
 COMCON = {
+    "directional_actions": [],
     "zero_object_actions": [],
     "single_object_actions": ["pick", "push"],
     "double_object_actions": ["pour"],
@@ -84,9 +85,8 @@ def test_just_to_see_if_works(merger):
         repetition_penalty = 1.1,
     )
     merger.save_log("pick cup1", skill_command, [[0.0, "pick"],[0.1, "green"],[0.4, "cup"],], [ [0.4, "cup1"],], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, COMCON, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S))
-    # In this test we don't evaluate
-    #assert skill_command == SkillCommand("pick cup1"), f"{skill_command} != 'pick cup1'"
-    merger.hri.delete()
+
+    # merger.hri.delete()
     
 
 @pytest.mark.parametrize(

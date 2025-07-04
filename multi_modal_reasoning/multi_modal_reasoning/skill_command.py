@@ -3,67 +3,103 @@ from copy import deepcopy
 COLORS = ["green", "blue", "red", "pink", "yellow", "black", "orange"]
 RELATIONS = ["to", "into", "onto", "from"]
 from naive_merger.utils import cc
+
+SKILL_COMMAND_TEMPLATE = {
+    "property": "", 
+    "target_action": "",
+    "relationship": "", 
+    "target_object": "", 
+    "target_object2": "", 
+    "target_object_color": "",
+    "direction": "",
+    "metric": "",
+}
+
 class SkillCommand():
-    def __init__(self, command: str = "", predicted: str = "", command_constraints={}):
-        self.command = command
-        self.predicted = predicted
+    def __init__(self,
+                r: dict | str, # dict or str 
+                command_constraints: dict, # The list of actions and is used for filtering the valid
+                reasoning_text: str = "", # (Optional) The entire raw response before parsing into the command.
+        ):
+        self.reasoning_text = reasoning_text
         self.command_constraints=command_constraints
 
-    def has_action_parameter(self):
-        l = self.command.split(" ")
-        if l[0] in self.command_constraints["actions"]: 
-            return False
-        elif l[1] in self.command_constraints["actions"]:
-            return True
-        else:
-            raise Exception()
-
-    @property
-    def action_parameter(self):
-        if self.has_action_parameter():
-            return self.command.split(" ")[0]
-        else:
-            return None
-
-    @property
-    def target_action(self):
-        if self.has_action_parameter():
-            return self.command.split(" ")[1]
-        else:
-            return self.command.split(" ")[0]
-        
-    @property
-    def target_object(self):
-        try:
-            if self.has_action_parameter():
-                return self.command.split(" ")[2]
+        self.target_action = None
+        self.target_direction = None
+        self.target_action_metric = None
+        self.target_object = None
+        self.object_preposition = None
+        self.target_object2 = None
+        self.action_parameter = None
+        if isinstance(r, str):
+            r = r.split(" ")
+            
+            if r[0] in command_constraints["adjectives"]:
+                self.action_parameter = r[0]
+                self.command = f"{r[0]} "
+                add = 1
             else:
-                return self.command.split(" ")[1]
-        except IndexError:
-            return None
+                self.command = f""
+                add = 0
 
-    @property
-    def object_preposition(self):
-        try:
-            if self.has_action_parameter():
-                return self.command.split(" ")[3]
+            try:
+                if r[0 + add] in command_constraints["directional_actions"]:
+                    self.target_action = r[0 + add]
+                    self.target_direction = r[1 + add]
+                    self.target_action_metric = r[2 + add]
+                    self.command += f"{r[0 + add]} {r[1 + add]} {r[2 + add]}"
+                elif r[0 + add] in command_constraints["zero_object_actions"]:
+                    self.target_action = r[0 + add]
+                    self.command += f"{r[0 + add]}"
+                elif r[0 + add] in command_constraints["single_object_actions"]:
+                    self.target_action = r[0 + add]
+                    self.target_object = r[1 + add]
+                    self.command += f"{r[0 + add]} {r[1 + add]}"
+                elif r[0 + add] in command_constraints["double_object_actions"]:
+                    self.target_action = r[0 + add]
+                    self.target_object = r[1 + add]
+                    self.object_preposition = r[2 + add]
+                    self.target_object2 = r[3 + add]
+                    self.command += f"{r[0 + add]} {r[1 + add]} {r[2 + add]} {r[3 + add]}"
+                else: 
+                    print("No known action", r[0 + add], " not in ", command_constraints["actions"])
+                    self.command = "" 
+            except IndexError:
+                pass # This SkillCommand is not valid and function is_valid() -> False
+
+        elif isinstance(r, dict):
+            if r['property'] in command_constraints["adjectives"]:
+                self.action_parameter = r['property']
+                self.command = f"{r['property']} "
             else:
-                return self.command.split(" ")[2]
-        except IndexError:
-            return None
+                self.command = f""
+            
+            if r["target_action"] in command_constraints["directional_actions"]:
+                self.target_action = r["target_action"]
+                self.target_direction = r['direction']
+                self.target_action_metric = r['metric']
+                self.command += f"{r['target_action']} {r['direction']} {r['metric']}"
+            elif r["target_action"] in command_constraints["zero_object_actions"]:
+                self.target_action = r["target_action"]
+                self.command += f"{r['target_action']}"
+            elif r["target_action"] in command_constraints["single_object_actions"]:
+                self.target_action = r["target_action"]
+                self.target_object = r['target_object']
+                self.command += f"{r['target_action']} {r['target_object']}"
+            elif r["target_action"] in command_constraints["double_object_actions"]:
+                self.target_action = r["target_action"]
+                self.target_object = r['target_object']
+                self.object_preposition = r['relationship']
+                self.target_object2 = r['target_object2']
+                self.command += f"{r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}"
+            else: 
+                print("No known action", r['target_action'], " not in ", command_constraints["actions"])
+                self.command = "" 
+        else: raise Exception()
 
     @property
     def target_storage(self):
         return self.target_object2
-    @property
-    def target_object2(self):
-        try:
-            if self.has_action_parameter():
-                return self.command.split(" ")[4]
-            else:
-                return self.command.split(" ")[3]
-        except IndexError:
-            return None
 
     def __str__(self):
         return self.command
@@ -80,11 +116,11 @@ class SkillCommand():
             return False
 
     @classmethod
-    def from_predicted(cls, response, command_constraints):
+    def from_predicted(cls, predicted_text, command_constraints):
         """ Parsing the LLM string output to `brackets`. """
         
-        predicted = deepcopy(response)
-        response = response.lower()
+        reasoning_text = deepcopy(predicted_text)
+        response = predicted_text.lower()
         
         """ response is raw string output from LLM, all format correction is here """
         
@@ -124,9 +160,9 @@ class SkillCommand():
                     elif "action:" in response[-6]:
                             response = response[-6]
                     else:
-                        return cls("", predicted, command_constraints)
+                        return cls(deepcopy(SKILL_COMMAND_TEMPLATE), command_constraints, reasoning_text)
                 except IndexError: 
-                    return cls("", predicted, command_constraints)
+                    return cls(deepcopy(SKILL_COMMAND_TEMPLATE), command_constraints, reasoning_text)
 
         # Parse Option 4: Output as: <reasoning> **action:** <action>, **<item2>**: <val2>, ...
         elif "**action:" in response:
@@ -150,8 +186,8 @@ class SkillCommand():
         response = response.replace("'", "")
         response = response.replace("a can", "can")
         response_list = response.split(",")
-        r = {"property": "", "target_action": "", "relationship": "", "target_object": "", "target_object2": "", "target_object_color": ""}
-        
+
+        r = deepcopy(SKILL_COMMAND_TEMPLATE)
         for i in range(len(response_list)):
             s = remove_article(response_list[i]) # get rid of a, the..
             
@@ -165,18 +201,7 @@ class SkillCommand():
                 else:
                     r[k] = v
 
-        if r['property'] not in command_constraints["adjectives"]:
-            r["property"] = ""
-
-        if r['target_action'] in command_constraints["zero_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']}".strip(), predicted, command_constraints)
-        elif r['target_action'] in command_constraints["single_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']}".strip(), predicted, command_constraints)
-        elif r['target_action'] in command_constraints["double_object_actions"]:
-            return cls(f"{r['property']} {r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}".strip(), predicted, command_constraints)
-        else: 
-            print("No known action", r['target_action'], " not in ", command_constraints["actions"])
-            return cls("", predicted, command_constraints)
+        return cls(r, command_constraints, reasoning_text)
 
     def is_valid(self):
         if self.command == "": return False
@@ -208,6 +233,9 @@ class SkillCommand():
                 not_valid += "Not correct object number defined"
         elif self.target_action in self.command_constraints["double_object_actions"]:
             if self.target_object is None or self.target_object2 is None:
+                not_valid += "Not correct object number defined"
+        elif self.target_action in self.command_constraints["directional_actions"]:
+            if self.target_object is not None or self.target_object2 is not None:
                 not_valid += "Not correct object number defined"
         else: raise Exception("Action not in list!")
 
@@ -268,6 +296,21 @@ def remove_types(str):
     if "property:" in str:
         str = str.split("property:")[-1]
         return "property", str
+    
+    if "direction: " in str:
+        str = str.split("direction: ")[-1]
+        return "direction", str
+    if "direction:" in str:
+        str = str.split("direction:")[-1]
+        return "direction", str
+
+    if "metric: " in str:
+        str = str.split("metric: ")[-1]
+        return "metric", str
+    if "metric:" in str:
+        str = str.split("metric:")[-1]
+        return "metric", str
+
 
     print(f"!!! Either 'action:', 'object:', 'color: ' or 'relationship': in string {str}")
     return None, None

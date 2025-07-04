@@ -251,7 +251,7 @@ class ReasoningMerger():
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description=role_description, *args, **kwargs)
             
         print(f"{cc.W}LM says: {predicted} {cc.E}")
-        return SkillCommand.from_predicted(predicted, command_constraints=command_constraints)
+        return SkillCommand.from_predicted(predicted, command_constraints)
 
     def save_command(self, voice_command, gesture_command, subfolder="June2025"):
         print("save command")
@@ -264,10 +264,10 @@ class ReasoningMerger():
     def save_log(self, true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names, 
                  max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description):
         data = {
-            "successful": SkillCommand(true_sentence) == skill_command,
+            "successful": SkillCommand(true_sentence, cfg) == skill_command,
             "true_sentence": true_sentence, 
             "predicted_sentence": skill_command.command,
-            "predicted": skill_command.predicted,
+            "predicted": skill_command.reasoning_text,
             "model_name": self.name(),
             "voice_stamped": [list(v) for v in voice_stamped],
             "gesture_stamped": [list(v) for v in gesture_stamped],
@@ -331,7 +331,7 @@ class ArgmaxMerger():
             if word in cfg["adjectives"]:
                 ap = word
         predicted = f"property: {ap}, action: {a}, object: {o}, relationship: {p}, object2: {o2}"
-        return SkillCommand.from_predicted(predicted, cfg=cfg)
+        return SkillCommand.from_predicted(predicted, cfg)
 
     def _merge(self, final_sentence, cfg, object_names):
         a, o, p, o2, ap = "none", "none", "none", "none", "none"
@@ -350,7 +350,7 @@ class ArgmaxMerger():
             if ap == "none" and word in cfg["adjectives"]:
                 ap = word
         predicted = f"property: {ap}, action: {a}, object: {o}, relationship: {p}, object2: {o2}"
-        return SkillCommand.from_predicted(predicted, cfg=cfg)
+        return SkillCommand.from_predicted(predicted, cfg)
 
 def beam_search(input_lattice, beam_width=5):
     beam = [{'sentence': [], 'score': 1.0}]

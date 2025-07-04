@@ -15,6 +15,8 @@ with DATA_PATH.open() as f:
 
 _CASES: list[dict] = _DATA["cases"]
 
+
+COM_CON = {"directional_actions": ["move"], "actions": ["move"], "adjectives": []}
 # 2. Common kwargs for every merger.merge() call                              #
 _COMMON_KWARGS = dict(
     role_description=get_role_description(
@@ -23,7 +25,7 @@ _COMMON_KWARGS = dict(
         S="",
         version="DIRECTIONS",
     ),
-    command_constraints={"zero_object_actions": ["move"], "actions": ["move"]},
+    command_constraints=COM_CON,
 )
 
 # 3. Build the parameter list for pytest                                      #
@@ -31,7 +33,7 @@ _PARAMS = [
     pytest.param(
         case["voice"],               # voice_stamped
         case["gesture"],             # gesture_stamped
-        SkillCommand(case["expected"]),
+        SkillCommand(case["expected"], COM_CON),
         id=case.get("id", f"case-{idx}"),
     )
     for idx, case in enumerate(_CASES, start=1)
@@ -72,5 +74,5 @@ def test_directional_cases(merger: ReasoningMerger, voice, gesture, expected):
         **_COMMON_KWARGS,
     )
     # merger.hri.delete()
-    assert result == expected, f"SEE THIS---PREDICTED: {result} != GROUND TRUTH: {expected}"
+    assert result == expected, f"SEE THIS---PREDICTED: {result} != GROUND TRUTH: {expected}\n Raw LM reasoning:{result.reasoning_text}"
 

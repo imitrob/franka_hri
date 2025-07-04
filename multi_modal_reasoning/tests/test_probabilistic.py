@@ -34,6 +34,6 @@ def test_just_probabilistic():
         ),
         command_constraints=CONFIG3,
     )
-    assert skill_command == SkillCommand("pick box")
+    assert skill_command == SkillCommand("pick box", CONFIG3)
     merger.hri.delete()
     rclpy.shutdown()

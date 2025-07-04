@@ -1,12 +1,11 @@
 # test_audio_loopback.py
-"""
-End-to-end loop-back test:
+"""End-to-end loop-back test:
 
 1.  Generate a sound that is hard to detect by the mic-filter and play it through the
     default speakers with ``playsound``.
 2.  Record simultaneously from the microphone device
-    using *arecord* (adjust the command block if you use a different
-    sound card).
+    using *arecord* (adjust the command block if using a different
+    sound card at audio_recorder.py).
 3.  Analyse the captured WAV with ``audioop.rms`` and assert that the
     average volume is above a silence threshold – i.e. sound was heard.
 """
@@ -22,6 +21,9 @@ from playsound import playsound
 
 import hri_manager
 from natural_language_processing.speech_to_text.audio_recorder import AudioRecorder
+
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 def generate_tone(path: Path, freq: int = 440, dur_s: float = 2.0,
                   rate: int = 44_100, amp: float = 0.5) -> None:

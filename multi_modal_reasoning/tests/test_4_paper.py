@@ -63,10 +63,10 @@ def test_alignment_noise(
                         command_constraints = cfg,
                         object_names = object_names,
                     )
-                    if not (SkillCommand(true_sentence) == skill_command):
+                    if not (SkillCommand(true_sentence, cfg) == skill_command):
                         merger.save_log(true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names,
                             max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description)
-                    if SkillCommand(true_sentence) == skill_command:
+                    if SkillCommand(true_sentence, cfg) == skill_command:
                         acc_sum += 1
                         print(f"{cc.W}SUCCESS{cc.E}")
                     else:
@@ -163,10 +163,10 @@ def test_on_saved_data(
                 command_constraints = cfg,
                 object_names = object_names,
             )
-            if not (SkillCommand(true_sentence) == skill_command):
+            if not (SkillCommand(true_sentence, cfg) == skill_command):
                 merger.save_log(true_sentence, skill_command, voice_stamped, gesture_stamped, scene, object_names,
                     max_new_tokens, temperature, top_p, repetition_penalty, cfg, role_description)
-            if SkillCommand(true_sentence) == skill_command:
+            if SkillCommand(true_sentence, cfg) == skill_command:
                 acc_sum += 1
                 print(f"{cc.W}SUCCESS{cc.E}")
             else:

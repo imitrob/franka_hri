@@ -9,6 +9,7 @@ from nltk.corpus import words
 # ================= Enhanced Configuration =================
 CONFIG = {
     "save_ext": "",
+    "directional_actions": [],
     "zero_object_actions": ["stop", "release", "home"],
     "single_object_actions": ["pick", "push", "pass", "point", "open", "close", "put"],
     "double_object_actions": ["place", "pour"],
@@ -39,6 +40,7 @@ PHONETIC_SIMILARITY_THR = 70
 
 CONFIG2 = {
     "save_ext": "CFG2",
+    "directional_actions": [],
     "zero_object_actions": ["stop", "release", "home"],
     "single_object_actions": ["pick", "push", "pass", "point", "open", "close", "put"],
     "double_object_actions": ["place", "transfer", "move"],
@@ -67,6 +69,7 @@ CONFIG2 = {
 
 CONFIG3 = {
     "save_ext": "CFG3",
+    "directional_actions": [],
     "zero_object_actions": ["stop", "release", "home"],
     "single_object_actions": ["pick", "push", "pass", "point", "open", "close"],
     "double_object_actions": ["place", "transfer", "move", "put"],

@@ -31,7 +31,7 @@ def test_just_alternatives():
         ), 
         command_constraints=CONFIG3,
     )
-    assert skill_command == SkillCommand("pick box")
+    assert skill_command == SkillCommand("pick box", CONFIG3)
     merger.hri.delete()
     rclpy.shutdown()
 
@@ -58,7 +58,7 @@ def test_just_alternatives2():
         ), 
         command_constraints=CONFIG3,
     )
-    assert skill_command == SkillCommand("pick box")
+    assert skill_command == SkillCommand("pick box", CONFIG3)
     merger.hri.delete()
     rclpy.shutdown()
 
@@ -82,6 +82,6 @@ def test_just_alternatives3():
         ), 
         command_constraints=CONFIG3,
     )
-    assert skill_command == SkillCommand("pick box")
+    assert skill_command == SkillCommand("pick box", CONFIG3)
     merger.hri.delete()
     rclpy.shutdown()

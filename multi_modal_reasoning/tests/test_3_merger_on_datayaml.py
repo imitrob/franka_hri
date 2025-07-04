@@ -17,6 +17,7 @@ SCENE: str = _DATA["scene"]
 _CASES: list[dict] = _DATA["cases"]
 
 COMCON = {
+    "directional_actions": [],
     "zero_object_actions": [],
     "single_object_actions": ["pick", "push"],
     "double_object_actions": ["pour"],
@@ -41,7 +42,7 @@ _PARAMS = [
     pytest.param(
         case["voice"],               # voice_stamped
         case["gesture"],             # gesture_stamped
-        SkillCommand(case["expected"]),
+        SkillCommand(case["expected"], COMCON),
         id=case.get("id", f"case-{idx}"),
     )
     for idx, case in enumerate(_CASES, start=1)
@@ -82,4 +83,4 @@ def test_reasoning_cases(merger: ReasoningMerger, voice, gesture, expected):
         **_COMMON_KWARGS,
     )
     # merger.hri.delete()
-    assert result == expected, f"SEE THIS: PREDICTED: {result} != GROUND TRUTH: {expected}"
+    assert result == expected, f"SEE THIS: PREDICTED: {result} != GROUND TRUTH: {expected}\n Raw LM reasoning:{result.reasoning_text}"
