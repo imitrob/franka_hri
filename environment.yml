@@ -1,4 +1,4 @@
-name: gesturenlu2
+name: gesturenlu
 channels:
 - pytorch
 - nvidia
