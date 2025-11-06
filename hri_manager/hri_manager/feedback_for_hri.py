@@ -10,7 +10,7 @@ class Feedback_for_HRI(Feedback):
         super(Feedback_for_HRI, self).__init__()
         self.is_recording = False
         
-    def _on_press(self, key):
+    def keyboard_on_press(self, key):
         if key == KeyCode.from_char("+"):
             if not self.is_recording:
                 self.is_recording = True
@@ -20,9 +20,9 @@ class Feedback_for_HRI(Feedback):
         if key == Key.enter:
             self.superwaitexec = "exec"
 
-        super()._on_press(key)
+        super().keyboard_on_press(key)
 
-    def _on_release(self, key):
+    def keyboard_on_release(self, key):
         if key == KeyCode.from_char("+"):
             if self.is_recording:
                 self.is_recording = False

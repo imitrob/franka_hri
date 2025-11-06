@@ -69,7 +69,7 @@ ln -s ~/robot_ws/src/teleop_gesture_toolbox/scene_getter/scene_getter/scene_make
 
 Record your own set of skills: 
 0. Move to home `ros2 launch skills_manager home_launch.py`
-1. Record template `ros2 launch object_localization record_template_launch.py template_name:=<your template>`
+1. Record template `ros2 launch object_localization record_template_launch.py name_template:=<your template>`
 2. Record skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager record_skill_launch.py name_skill:=<your skill>`
 Note: if record skill and you want to record it again, always do homing before the new recording attempt.
    1. Play the skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager plau_skill_launch.py name_skill:=<your skill> name_template:=<your template>`

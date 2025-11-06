@@ -108,6 +108,7 @@ CONFIG_DEMO = {
     "double_object_actions": ["put"],
     "actions": ["stop", "pick", "touch", "put"], #, "place", "point", "open", "close", "put", "stop", "release", "home"], # all actions
     "adjectives": ["fast","slow","force"],
+    "directional_actions": [],
     "prepositions": ["to"], #["to", "into", "onto", "from"],
     "object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
     # "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],

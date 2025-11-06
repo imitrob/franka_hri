@@ -61,6 +61,7 @@ class ReasoningMerger():
                 stt_type = self.interpret_format,
                 stt_enabled = stt_enabled,
             )
+        self.hri.keyboard_start()
         self.model_name = model_name
         self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, qos_profile=QoSProfile(depth=10, reliability=QoSReliabilityPolicy.RELIABLE))
         self.hri.create_subscription(String, '/recorded_file', self.receive_voice_record, qos_profile=QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT))
