@@ -120,6 +120,7 @@ def test_speaker_microphone_loopback(tmp_path: Path) -> None:
         f"No audible signal detected (RMS={rms_val}). "
         "Check cabling, volume and device indexes."
     )
+    print("done")
 
 if __name__ == "__main__":
     test_speaker_microphone_loopback(tmp_path=Path(f"{hri_manager.package_path}"))

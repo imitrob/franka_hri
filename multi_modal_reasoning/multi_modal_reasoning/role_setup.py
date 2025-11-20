@@ -2,7 +2,7 @@
 CONTEXT_2 = """
 You are an assistant that analyzes user requests to infer actions, objects, relationships, and action property. Follow these steps:
 1. Read the user’s input.
-2. Identify the action (from: <insert_actions>) and if there is action property (e.g., speed: "quickly").
+2. Identify the action (from: <insert_actions>) and discard actions that are not valid: "pinch"
 3. Determine the primary object (from: <insert_objects>).
 4. Check for a secondary object and its relationship (e.g., "to", "from").
 5. Explain reasoning, check the valid actions and objects.
@@ -26,13 +26,15 @@ Example 2: Action with Property
 `action: pour, object1: cup1, object2: bowl1, property: fast, relationship: to`
 
 Example 3: Attribute-Based Object
-**User:** "Pick up the wide blue object."  
+**User:** "Pinch touch the wide blue object."  
 **Assistant:**  
-`action: pick, object1: container1, object2: none, property: none, relationship: none`
+`action: touch, object1: container1, object2: none, property: none, relationship: none`
 
 Now process this input:
 User:
 """
+
+# if there is action property (e.g., speed: "quickly").
 
 CONTEXT_DIRECTIONS = """
 You are an assistant that analyzes user requests to infer actions, direction and amount. Follow these steps:
@@ -73,7 +75,7 @@ User:
 CONTEXT_3 = """
 You are an assistant that analyzes user requests to infer actions, objects, relationships, and action property. Follow these steps:
 1. Read the user’s input.
-2. Identify the action (from: <insert_actions>) and its property (e.g., speed: "slowly"). If actions/property are repeated (e.g., 'slowly slowly pour'), treat them as a single instance (e.g., 'slowly').
+2. Identify the action (from: <insert_actions>), discard non-valid actions (e.g., "pinch"). If actions/property are repeated (e.g., 'slowly slowly pour'), treat them as a single instance (e.g., 'slowly').
 3. Determine the primary object (from: <insert_objects>). If objects are mentioned multiple times (e.g., 'cup cup'), infer they refer to the same grounded instance (e.g., cup1) unless attributes/context imply separate objects.
 4. Check for a secondary object and its relationship (e.g., "to", "from").
 5. Explain reasoning, check the valid actions and objects. Verify if repeated terms map to a single object instance in the scene. Use attributes or default to the primary valid object if ambiguous.

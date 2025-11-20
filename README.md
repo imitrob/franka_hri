@@ -133,9 +133,18 @@ Notes:
 
 ## (optional) Visualization 
 
-Visualize dependencies across existing skills: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
-Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python franka_learning_from_demonstrations_ros2/trajectory_data/skill_visualizer.py` and see `localhost:8076`
+Visualize dependencies across existing skills: `lfdenv; python src/franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
+Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python src/franka_learning_from_demonstrations_ros2/trajectory_data/trajectory_data/skill_visualizer.py` and see `localhost:8076`
 TODO: Visualize merge logs: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_merges.py` and see `localhost:8075`
 
 (super-optional) What I like is to creating shortcut links by using script [hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skills`, `http://skill_links`, `http://hri_log`.
+
+# FAQ:
+
+Q: My Panda robot didn't move.
+A: Test homing first: `ros2 launch skills_manager home_launch.py`. I had a situation where, the script got stuck when entering the Desk. On a second run, it was fine.
+
+Q: The transcription is always saying `thank you`.
+A: Your microphone doesn't work. See `hri_manager/tests/test_audio.py` - perhaps change the target soundcard `plughw` in `natural_language_processing/speech_to_text/audio_recorder.py` cmd variable.
+
 
