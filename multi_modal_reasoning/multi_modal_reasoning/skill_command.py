@@ -125,6 +125,19 @@ class SkillCommand():
         """ response is raw string output from LLM, all format correction is here """
         
         # Parse Option 1: Output as: <reasoning> ```plaintext <result>```
+        if "{" in response:
+            import json
+            response = response.replace("```", "")
+            response = response.replace("json", "")
+
+            parsedjson = json.loads(response)
+            r = deepcopy(SKILL_COMMAND_TEMPLATE)
+            mergeddict = r | parsedjson
+            mergeddict["target_action"] = mergeddict["action"]
+            mergeddict["target_object"] = mergeddict["object1"]
+            mergeddict["target_object2"] = mergeddict["object2"]
+            return cls(mergeddict, command_constraints, reasoning_text)
+
         if "```plaintext" in response: # 
 
             response = response.split("```")

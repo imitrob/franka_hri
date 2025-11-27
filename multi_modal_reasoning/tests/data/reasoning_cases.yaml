@@ -53,6 +53,26 @@ cases:
     gesture: []
     expected: "pick cup1"
 
+  - id: pick-cup1-voice-gesture-addedwords1
+    voice: [[0.0, "Pinch"], [0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-cup1-voice-gesture-addedwords2
+    voice: [[0.0, "Grab"], [0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-cup1-voice-gesture-addedwords3
+    voice: [[0.0, "Grab"], [0.05, "pinch"], [0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-cup1-voice-gesture-addedwords4
+    voice: [[0.00, "Pick"], [0.01, "grab"], [0.05, "pinch"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: []
+    expected: "pick cup1"
+
 #  - id: pick-this-uncertain
 #    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "this"]]
 #    gesture: []

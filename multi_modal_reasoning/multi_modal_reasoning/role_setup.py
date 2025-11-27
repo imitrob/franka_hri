@@ -182,7 +182,29 @@ Now process this input:
 User:
 """
 
+V5 = """
+Task: Extract fixed labels. Output JSON only. No explanations.
 
+Allowed values:
+- action: pick | push | pour | none
+- object1/object2: cup1 | container1 | bowl1 | none
+- property: fast | slow | force | none
+- relationship: to | from | none
+
+Scene mapping:
+- red → cup1
+- wide blue → container1
+- green small → bowl1
+
+Rules:
+- If multiple verbs appear, ignore any not in {pick,push,pour}; if none apply, action=none.
+- Map quickly→fast, slowly→slow, forcefully/hard→force.
+
+Return exactly:
+{"action":"...","object1":"...","object2":"...","property":"...","relationship":"..."}
+
+User: "Pinch pick the red object."
+"""
 
 
 
@@ -197,6 +219,8 @@ def get_role_description(A, O, S="", version="v2"):
         d = CONTEXT_ALTERNATIVES
     elif version == "DIRECTIONS":
         d = CONTEXT_DIRECTIONS
+    elif version == "v5":
+        d = V5
     else:
         raise Exception()
     

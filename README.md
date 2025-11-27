@@ -19,10 +19,6 @@ git clone https://github.com/imitrob/teleop_gesture_toolbox.git --depth 1
 
 conda env create -f franka_hri/environment.yml
 conda activate gesturenlu
-# Hack to use whisperx with Python3.11
-pip install pyannote.audio==3.3.2 --no-deps
-pip install -r <(pip show pyannote.audio | grep Requires | cut -d ' ' -f2- | tr ', ' '\n' | grep -v torchaudio)
-pip install whisperx --no-deps
 
 cd ..
 colcon build --symlink-install --cmake-args -DPython3_FIND_VIRTUALENV=ONLY 
@@ -30,23 +26,7 @@ source install/setup.bash
 
 bash src/teleop_gesture_toolbox/gesture_detector/leap_motion_install.sh
 ```
-<hr>
 
-**20 June 2025 Observed Problem Hotfix**: 
-
-1) some pip installed packages installs the numpy 2.2.6 through pip, we don't want this, right now, let's uninstall it:
-
-```
-pip uninstall numpy # Confirm (Y)
-mamba install -c conda-forge numpy==1.26.4 --force-reinstall # reinstall the conda numpy package
-```
-2) This might be fixed in next kokoro version, however, change the following line:
-/home/doma/miniconda3/envs/gesturenlu2/lib/python3.11/site-packages/misaki/espeak.py:10
-```
-#EspeakWrapper.set_data_path(espeakng_loader.get_data_path())
-EspeakWrapper.data_path = espeakng_loader.get_data_path()
-```
-<hr>
 
 ROS2 installs the packages to build folder. Make a symbolic links to use materials such as trajectories, configs, templates.
 ```
@@ -134,8 +114,36 @@ Notes:
 ## (optional) Visualization 
 
 Visualize dependencies across existing skills: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
-Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python franka_learning_from_demonstrations_ros2/trajectory_data/skill_visualizer.py` and see `localhost:8076`
+Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python franka_learning_from_demonstrations_ros2/trajectory_data/trajectory_data/skill_visualizer.py` and see `localhost:8076`
 TODO: Visualize merge logs: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_merges.py` and see `localhost:8075`
 
 (super-optional) What I like is to creating shortcut links by using script [hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skills`, `http://skill_links`, `http://hri_log`.
+
+
+# FAQ
+
+## Q: pytests in VSCode doesn't work
+
+- A: `launch_testing` (ROS pytest plugin) that’s auto-loaded isn’t compatible with pytest (the new import_path(..., *, consider_namespace_packages=...) API in pytest 8 made that argument mandatory). You need ptest version < 8.0.0, e.g., version (`conda install -c conda-forge pytest=7.4.*`), I added this condition in the `environment.yml` already!
+
+
+## Q: After installation the numpy is 2.2.6 and pip version
+
+- A: We don't want this, reinstallation:
+
+```
+pip uninstall numpy # Confirm (Y)
+mamba install -c conda-forge numpy==1.26.4 --force-reinstall # reinstall the conda numpy package
+```
+
+## Q: Kokoro installation bug:
+
+- A: change the following line:
+```
+/home/doma/miniconda3/envs/gesturenlu2/lib/python3.11/site-packages/misaki/espeak.py:10
+```
+#EspeakWrapper.set_data_path(espeakng_loader.get_data_path())
+EspeakWrapper.data_path = espeakng_loader.get_data_path()
+```
+
 

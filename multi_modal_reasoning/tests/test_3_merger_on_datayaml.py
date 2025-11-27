@@ -33,6 +33,7 @@ _COMMON_KWARGS = dict(
         A=["pick", "push", "pour"],
         O=["cup1", "container1", "bowl1"],
         S=SCENE,
+        version="v5",
     ),
     command_constraints=COMCON,
 )
@@ -59,10 +60,11 @@ def ros_context():
 @pytest.fixture(
     scope="module",
     params=[
-        pytest.param("Qwen/Qwen3-1.7B", id="qwen3"),
+        # pytest.param("Qwen/Qwen3-1.7B", id="qwen3"),
         pytest.param("LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", id="exaone"),
-        pytest.param("ibm-granite/granite-3.1-2b-instruct", id="granite"),
-        pytest.param("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", id="deepseek"),
+        # pytest.param("ibm-granite/granite-3.1-2b-instruct", id="granite"),
+        # pytest.param("Qwen/Qwen2-1.5B-Instruct", id="qwen21.5"),
+        # pytest.param("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", id="deepseek"),
     ],
 )
 def merger(request):

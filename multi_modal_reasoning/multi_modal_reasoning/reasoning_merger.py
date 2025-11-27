@@ -222,19 +222,6 @@ class ReasoningMerger():
             self.hri.speak(f"Merged sentence is: {final_sentence}, starting reasoner")
             predicted = self.hri.sentence_processor.raw_predict(final_sentence, role_description=role_description, *args, **kwargs)
 
-
-
-        elif self.interpret_format == "probabilistic":
-            final_sentence = list(words[words!={}])
-            for n,word in enumerate(final_sentence):
-                if n%2==0:
-                    final_sentence.insert(n, {" ": 1.0})
-            final_sentence.insert(0, {" ": 1.0})
-            final_sentence.insert(0, {" ": 1.0})
-            final_sentence.append({" ": 1.0})
-            final_sentence.append({" ": 1.0})
-            self.hri.speak(f"Merged sentence is: {final_sentence}, starting reasoner")
-            predicted = self.hri.sentence_processor.probabilistic_predict(final_sentence, role_description=role_description, *args, **kwargs)
         elif self.interpret_format == "alternatives":
             words = list(words[words!={}])
             final_sentence = f"\n"
