@@ -25,6 +25,8 @@ from multi_modal_reasoning.role_setup import get_role_description
 from multi_modal_reasoning.generate_dataset import CONFIG3, CONFIG_DEMO
 import torch
 
+EXIT_AFTER_EXECUTION = True
+
 class ReasoningMerger():
     def __init__(self,
                 name_user: str,
@@ -61,6 +63,7 @@ class ReasoningMerger():
                 stt_type = self.interpret_format,
                 stt_enabled = stt_enabled,
             )
+        self.hri.keyboard_start()
         self.model_name = model_name
         self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.gesture_hricommand_callback, qos_profile=QoSProfile(depth=10, reliability=QoSReliabilityPolicy.RELIABLE))
         self.hri.create_subscription(String, '/recorded_file', self.receive_voice_record, qos_profile=QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT))
@@ -112,6 +115,8 @@ class ReasoningMerger():
                     #     self.save_command(voicecommand, hricommand)
                     # else:
                     self.extract_merge_and_play(voicecommand, hricommand, *args, **kwargs)
+                    if EXIT_AFTER_EXECUTION:
+                        return
                 else:
                     print()
                     print("Voice command is:")
@@ -121,6 +126,8 @@ class ReasoningMerger():
                     #     self.save_command(voicecommand, [])
                     # else:
                     self.extract_merge_and_play(voicecommand, None,  *args, **kwargs)
+                    if EXIT_AFTER_EXECUTION:
+                        return
 
                 self.record_queue = []
                 self.gestures_queue = []
@@ -170,8 +177,8 @@ class ReasoningMerger():
                 voice_stamped = voicecommand
         role_description = get_role_description(
             A=cfg["actions"], 
-            O=self.hri.scene.O, 
-            S=self.hri.scene.get_scene_param_description(), 
+            O=cfg["object_types"], #self.hri.scene.O, 
+            S=cfg["scene_text"], #self.hri.scene.get_scene_param_description(), 
             version=role_version
         )
 

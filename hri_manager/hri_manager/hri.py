@@ -30,6 +30,12 @@ class HRI(HCI, Feedback_for_HRI):#, LfD):
 
         self.lfd = None
 
+    @property
+    def desk(self):
+        if self.lfd is None: self.init_lfd()
+        
+        return self.lfd.desk
+
     def init_lfd(self):
         self.lfd = LfD()
         self.lfd.start()
@@ -109,12 +115,12 @@ class HRI(HCI, Feedback_for_HRI):#, LfD):
 
         morph_skill = skill1.morth_trajectories(skill2, morph_parameter)
 
-        self.recorded_traj = morph_skill.traj_T
-        self.recorded_ori_wxyz = morph_skill.ori_T
-        self.recorded_gripper = morph_skill.grip_T
-        self.recorded_img = morph_skill.img
-        self.recorded_img_feedback_flag = morph_skill.img_feedback_flag_T
-        self.recorded_spiral_flag = morph_skill.spiral_flag_T
+        self.loaded_traj = morph_skill.traj_T
+        self.loaded_ori_wxyz = morph_skill.ori_T
+        self.loaded_gripper = morph_skill.grip_T
+        self.loaded_img = morph_skill.img
+        self.loaded_img_feedback_flag = morph_skill.img_feedback_flag_T
+        self.loaded_spiral_flag = morph_skill.spiral_flag_T
         self.filename=str(morph_skill.filename)
 
 def main():

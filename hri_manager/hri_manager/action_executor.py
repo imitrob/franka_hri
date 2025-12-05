@@ -14,7 +14,7 @@ import numpy as np
 class ActionExecutor():
     def __init__(self, name_user: str, dry_run:bool = False):
         self.hri = HRI(name_user=name_user,tts_enabled=True, dry_run=dry_run)
-
+        self.hri.keyboard_start()
         qos = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT)
         self.hri.create_subscription(HRICommandMSG, '/modality/gestures', self.play_skill_callback, qos_profile=qos)
         self.hri.create_subscription(String, '/recorded_file', self.process_and_play_skill_callback, qos_profile=qos)

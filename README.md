@@ -49,7 +49,7 @@ ln -s ~/robot_ws/src/teleop_gesture_toolbox/scene_getter/scene_getter/scene_make
 
 Record your own set of skills: 
 0. Move to home `ros2 launch skills_manager home_launch.py`
-1. Record template `ros2 launch object_localization record_template_launch.py template_name:=<your template>`
+1. Record template `ros2 launch object_localization record_template_launch.py name_template:=<your template>`
 2. Record skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager record_skill_launch.py name_skill:=<your skill>`
 Note: if record skill and you want to record it again, always do homing before the new recording attempt.
    1. Play the skill 1. `ros2 launch object_localization box_localization_launch.py` 2. `ros2 launch skills_manager plau_skill_launch.py name_skill:=<your skill> name_template:=<your template>`
@@ -113,8 +113,9 @@ Notes:
 
 ## (optional) Visualization 
 
-Visualize dependencies across existing skills: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
-Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python franka_learning_from_demonstrations_ros2/trajectory_data/trajectory_data/skill_visualizer.py` and see `localhost:8076`
+Visualize dependencies across existing skills: `lfdenv; python src/franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
+Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python src/franka_learning_from_demonstrations_ros2/trajectory_data/trajectory_data/skill_visualizer.py` and see `localhost:8076`
+
 TODO: Visualize merge logs: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_merges.py` and see `localhost:8075`
 
 (super-optional) What I like is to creating shortcut links by using script [hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skills`, `http://skill_links`, `http://hri_log`.
@@ -145,5 +146,12 @@ mamba install -c conda-forge numpy==1.26.4 --force-reinstall # reinstall the con
 #EspeakWrapper.set_data_path(espeakng_loader.get_data_path())
 EspeakWrapper.data_path = espeakng_loader.get_data_path()
 ```
+
+## Q: My Panda robot didn't move.
+- A: Test homing first: `ros2 launch skills_manager home_launch.py`. I had a situation where, the script got stuck when entering the Desk. On a second run, it was fine.
+
+
+## Q: The transcription is always saying `thank you`.
+A: Your microphone doesn't work. See `hri_manager/tests/test_audio.py` - perhaps change the target soundcard `plughw` in `natural_language_processing/speech_to_text/audio_recorder.py` cmd variable.
 
 

@@ -3,6 +3,7 @@ actions:
 - pick
 - touch
 - put
+- push
 objects:
 - cube
 - bowl
@@ -11,6 +12,7 @@ all_action_words:
 - pick
 - touch
 - put
+- push
 all_object_action_words:
 - cube
 - bowl

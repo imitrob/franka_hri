@@ -104,18 +104,20 @@ class SceneObject:
 CONFIG_DEMO = {
     "save_ext": "CFGDEMO",
     "zero_object_actions": ["stop"],
-    "single_object_actions": ["pick", "touch"],
+    "single_object_actions": ["pick", "touch", "push"],
     "double_object_actions": ["put"],
-    "actions": ["stop", "pick", "touch", "put"], #, "place", "point", "open", "close", "put", "stop", "release", "home"], # all actions
+    "actions": ["stop", "pick", "touch", "put", "push"], #, "place", "point", "open", "close", "put", "stop", "release", "home"], # all actions
     "adjectives": ["fast","slow","force"],
+    "directional_actions": [],
     "prepositions": ["to"], #["to", "into", "onto", "from"],
-    "object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
-    # "object_types": ["cube", "bowl", "cup", "drawer", "bottle"],
+    # "object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
+    "object_types": ["cube", "bowl", "drawer", "banana", "box"],
     "properties": {
         "size": ["small", "medium", "large"],
         "color": ["red", "green", "blue", "yellow"],
         "state": ["open", "closed", "half-full"]
     },
+    "scene_text": "In a scene is a yellow plastic banana, metal red bowl, plastic green cube, paper rectangular box. ",
     "noise": {
         "phonetic_confusion": 0.0, #0.2,  # Probability of phonetic-based errors
         "filler_words": 0.0, #0.3,        # Probability of adding filler words

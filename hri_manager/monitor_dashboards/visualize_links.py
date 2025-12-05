@@ -4,7 +4,7 @@ import yaml
 import os
 import plotly.graph_objects as go
 import dash
-from dash import dcc, html, Input, Output
+from dash import dcc, html, Input, Output, State
 import numpy as np
 from collections import defaultdict
 
@@ -27,6 +27,7 @@ for filename in user_files:
 
 app.layout = html.Div([
     dcc.Store(id='user-store'),
+    dcc.Store(id='current-action'),
     html.Div(id='dummy-output', style={'display': 'none'}),
     html.Div([
         dcc.Dropdown(
@@ -39,7 +40,24 @@ app.layout = html.Div([
     ]),
     html.Div([
         dcc.Graph(id='main-graph', style={'width': '60%', 'height': '90vh', 'display': 'inline-block'}),
-        dcc.Graph(id='matrix-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'})
+        dcc.Graph(id='matrix-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'}),
+        html.Div(  # bottom bar that appears with the command
+            id='command-bar',
+            children="",
+            style={
+                'display': 'none',
+                'position': 'fixed',
+                'left': 0, 'right': 0, 'bottom': 0,
+                'zIndex': 9999,
+                'padding': '10px 14px',
+                'backgroundColor': '#111',
+                'color': '#eee',
+                'fontFamily': 'monospace',
+                'fontSize': '14px',
+                'borderTop': '1px solid #444',
+                'whiteSpace': 'pre'
+            }
+        ),
     ])
 ])
 
@@ -246,11 +264,12 @@ def create_main_graph(trigger, _):
 # Callback for matrix display
 @app.callback(
     Output('matrix-display', 'figure'),
+    Output('current-action', 'data'),
     Input('main-graph', 'clickData'))
 def update_matrix(clickData):
     fig = go.Figure()
     if not clickData:
-        return fig
+        return fig, dash.no_update
     
     try:
         point_index = clickData['points'][0]['pointIndex']
@@ -258,7 +277,7 @@ def update_matrix(clickData):
         
         # Only respond to clicks on action nodes (trace 0)
         if clicked_trace != 0:
-            return fig
+            return fig, dash.no_update
         
         action = action_nodes[point_index]['label']
         
@@ -301,6 +320,7 @@ def update_matrix(clickData):
                 plot_bgcolor='white',
                 yaxis=dict(autorange='reversed')  # To match matrix convention
             )
+            return fig, action
         elif (action, 'single') in skill_db:
             # Show single object connections
             valid_objs = list(skill_db[(action, 'single')].keys())
@@ -318,11 +338,70 @@ def update_matrix(clickData):
                 yaxis=dict(title="Objects"),
                 plot_bgcolor='white'
             )
+            return fig, action
         
     except Exception as e:
         print(f"Error updating matrix: {e}")
     
-    return fig
+    return fig, dash.no_update
+
+@app.callback(
+    Output('command-bar', 'children'),
+    Output('command-bar', 'style'),
+    Input('matrix-display', 'clickData'),
+    State('current-action', 'data')
+)
+def show_command_bar(clickData, action):
+    # Base style for the bar; toggling 'display' controls visibility
+    base_style = {
+        'position': 'fixed',
+        'left': 0, 'right': 0, 'bottom': 0,
+        'zIndex': 9999,
+        'padding': '10px 14px',
+        'backgroundColor': '#111',
+        'color': '#eee',
+        'fontFamily': 'monospace',
+        'fontSize': '14px',
+        'borderTop': '1px solid #444',
+        'whiteSpace': 'pre'
+    }
+
+    if not clickData or not action:
+        return dash.no_update, dash.no_update
+
+    pt = clickData['points'][0]
+
+    # Heatmap -> pair selection. Ensure it's a valid cell (z==1)
+    if 'z' in pt:
+        z_val = pt.get('z', 0)
+        if not z_val:
+            # Clicked an invalid combination; do nothing
+            return dash.no_update, dash.no_update
+        first_obj = str(pt.get('y'))
+        second_obj = str(pt.get('x'))
+        cmd = (
+            f"ros2 launch skills_manager play_skill_launch.py "
+            f"name_skill:={action}1_{first_obj} name_template:={first_obj}" + "; " 
+            f"ros2 launch skills_manager play_skill_launch.py "
+            f"name_skill:={action}2_{second_obj} name_template:={second_obj}" #name_storage:={second_obj}"
+        )
+    else:
+        # Single-object scatter -> one object selected
+        obj = pt.get('y') or pt.get('text')
+        if obj is None:
+            return dash.no_update, dash.no_update
+        cmd = (
+            f"ros2 launch skills_manager play_skill_launch.py "
+            f"name_skill:={action}_{obj} name_template:={obj}"
+        )
+
+    content = html.Div([
+        html.Strong("Command: "),
+        html.Code(cmd, style={'whiteSpace': 'pre-wrap'})
+    ])
+
+    style = dict(base_style, **{'display': 'block'})
+    return content, style
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8077)
