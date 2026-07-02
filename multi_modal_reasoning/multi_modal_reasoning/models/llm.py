@@ -1,201 +1,134 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteria, StoppingCriteriaList
-import torch
-from transformers import BitsAndBytesConfig
-from tqdm import tqdm
+"""LLM client for a vLLM server (OpenAI-compatible API).
 
-class ProgressStoppingCriteria(StoppingCriteria):
-    def __init__(self, total_steps):
-        self.pbar = tqdm(total=total_steps)
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        self.pbar.update(1)
-        return False  # Never stop early, just track progress
+Run:
+    vllm serve LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct --port 8000
 
-QUANTIZATION = 16 # quickest
+Then, point VLLM_BASE_URL to it (default: http://localhost:8000/v1).
+"""
+import json
+import os
+from openai import OpenAI
+
+DEFAULT_BASE_URL = "http://localhost:8000/v1"
+REQUEST_TIMEOUT = 120.0  # [s] generation of long reasoning chains can take a while
+
+# Fixed sampling settings: deterministic, greedy decoding for reproducible extraction.
+TEMPERATURE = 0.0
+TOP_P = 1.0
+REPETITION_PENALTY = 1.1
+MAX_NEW_TOKENS = 1000
+
+
+def _extract_json(text: str) -> dict:
+    """Parse a JSON object from `text`. With guided decoding `text` is already
+    pure JSON; this also tolerates a stray prefix/suffix by slicing to the
+    outermost braces."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        if "{" in text and "}" in text:
+            return json.loads(text[text.index("{"):text.rindex("}") + 1])
+        raise
+
 
 class SentenceProcessor():
-    def __init__(self, model_name: str = "SultanR/SmolTulu-1.7b-Instruct"):
-        """Good models for instruct:
-            model_name = Qwen/Qwen2.5-0.5B-Instruct (1GB VRAM)
-            model_name = SultanR/SmolTulu-1.7b-Instruct (3.3GB VRAM)
-            deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+    """Thin OpenAI-API caller, replaces the former in-process transformers model."""
+
+    def __init__(self, base_url: str | None = None, api_key: str | None = None):
+        """The model is whatever the vLLM server is serving; it is discovered
+        from the server and exposed as `self.model_name`.
 
         Args:
-            model_name (str, optional): _description_. Defaults to "SultanR/SmolTulu-1.7b-Instruct".
+            base_url (str, optional): vLLM server URL, defaults to $VLLM_BASE_URL or http://localhost:8000/v1
+            api_key (str, optional): defaults to $VLLM_API_KEY or "EMPTY" (vLLM default)
         """
-        print(f"Starting 3/3 Init LLM", flush=True)
-        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
-        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
-
-        if QUANTIZATION == 32:
-            quantization_config = None
-            torch_dtype = torch.float32
-        elif QUANTIZATION == 16:
-            quantization_config = None
-            torch_dtype = torch.float16
-        elif QUANTIZATION == 8:
-            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-            torch_dtype = torch.float32
-        elif QUANTIZATION == 4:
-            quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-            torch_dtype = torch.float32
-
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch_dtype,
-            device_map="cuda", # needs to be fully loaded into the GPU or it's too slow!
-            trust_remote_code=True,
-            quantization_config=quantization_config
+        self.client = OpenAI(
+            base_url=base_url or os.environ.get("VLLM_BASE_URL", DEFAULT_BASE_URL),
+            api_key=api_key or os.environ.get("VLLM_API_KEY", "EMPTY"),
+            timeout=REQUEST_TIMEOUT,
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        print(f"3/3 Inited LLM", flush=True)
-        print(f"Memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
-        print(f"Memory reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
+        # Fail fast with a helpful message when the server is down / serves nothing
+        served = [m.id for m in self.client.models.list()]
+        if not served:
+            raise RuntimeError(f"No model served at {self.client.base_url}. Start one with: vllm serve <model>")
+        self.model_name = served[0]
+        print(f"Connected to LLM server at {self.client.base_url}, model: {self.model_name}", flush=True)
 
+    def raw_predict(self, prompt: str, role_description: str) -> str:
+        """ Returns string output from LM. """
+        completion = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": role_description},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=MAX_NEW_TOKENS,
+            temperature=TEMPERATURE,
+            top_p=TOP_P,
+            extra_body={"repetition_penalty": REPETITION_PENALTY},  # vLLM sampling extension
+        )
+        return completion.choices[0].message.content
+
+    def predict_structured(self, prompt: str, role_description: str, schema: dict) -> dict:
+        """Constrained generation via the OpenAI-standard structured-outputs
+        API (`response_format` with a json_schema). vLLM enforces the schema
+        with its structured-output backend, so the reply is valid JSON with
+        allowed values only (out-of-enum values are impossible). Returns the
+        parsed dict.
+
+        Note: the legacy `guided_json` in `extra_body` is silently ignored
+        unless the server is launched with a guided-decoding backend, so we
+        use `response_format`, which is enforced by default.
+
+        `enable_thinking=False` turns off Qwen3-style reasoning so the answer
+        lands in `message.content` (otherwise the <think> block is routed to
+        `reasoning_content` and `content` comes back empty). The kwarg is
+        ignored by chat templates that don't use it, so it is safe for all
+        models."""
+        completion = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": role_description},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=MAX_NEW_TOKENS,
+            temperature=TEMPERATURE,
+            top_p=TOP_P,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "skill_command", "schema": schema},
+            },
+            extra_body={
+                "repetition_penalty": REPETITION_PENALTY,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+        )
+        msg = completion.choices[0].message
+        text = (msg.content or "").strip()
+        if not text:  # reasoning models may leave content empty, answer in reasoning_content
+            text = (getattr(msg, "reasoning_content", None) or "").strip()
+        if not text:
+            raise RuntimeError(
+                f"Empty response from model '{self.model_name}'. Ensure the vLLM server "
+                f"enforces guided decoding and thinking is disabled. finish_reason="
+                f"{completion.choices[0].finish_reason}"
+            )
+        return _extract_json(text)
 
     def delete(self):
-        self.model.to("cpu")
-        del self.model
-
-    def predict(self, 
-                prompt: str, # input sentence is string
-                role_description: str,
-                max_new_tokens: int = 50, 
-                temperature: float = 0.0, 
-                top_p: float = 1.0,
-                repetition_penalty: float = 1.1,
-            ) -> dict:
-        """ Returns as "parsed" instruct dict in format:
-            Dict[str, str]: keys are always ("target_action", "target_object", "target_storage")
-        """
-        response = self.raw_predict(prompt, role_description, max_new_tokens, temperature, top_p, repetition_penalty)
-        print(response, flush=True)
-
-        response = response.replace(", ", ",")
-        response = response.replace("'", "")
-        response = response.replace("a can", "can")
-        response_list = response.split(",")
-        r = {}
-        k_prev = ""
-        for i in range(len(response_list)):
-            s = self.remove_article(response_list[i]) # get rid of a, the..
-            
-            k, v = self.sort_types(s) # get rid of "action: ..."
-            if k_prev == k: # order from model is: object, object2 right after each other; color, color2
-                r[k+"2"] = v
-            else:
-                r[k] = v
-            k_prev = k
-        return r
-
-    def raw_predict(self, 
-                    prompt: str, 
-                    role_description: str,
-                    max_new_tokens: int = 1000, 
-                    temperature: float = 0.0, 
-                    top_p: float = 1.0,
-                    repetition_penalty: float = 1.1,
-                    *args, **kwargs,
-                    ) -> str:
-        """ Returns string output from LM. """
-        messages = [
-            {
-            "role": "system",
-            "content": role_description,
-            },
-            {"role": "user", "content": prompt}
-        ]
-        text = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
-        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
-
-        printer = StoppingCriteriaList([ProgressStoppingCriteria(total_steps=max_new_tokens)])
-        generated_ids = self.model.generate(
-            **model_inputs,
-            max_new_tokens=max_new_tokens,  # Allow space for full format
-            temperature=temperature,
-            top_p=top_p,  # Use full distribution
-            repetition_penalty=repetition_penalty,
-            eos_token_id=self.tokenizer.eos_token_id,
-            do_sample=False,  # Force greedy decoding
-            stopping_criteria=printer,
-        )
-        # Decode only the new tokens
-        response = self.tokenizer.decode(
-            generated_ids[0][model_inputs.input_ids.shape[-1]:],
-            skip_special_tokens=True
-        )
-
-        return response
-
-
-    def remove_article(self, str):
-        if str[0:2] == "a ":
-            str = str.replace("a ", "")
-        if str[0:4] == "the ":
-            str = str.replace("the ", "")
-        return str
-
-    COLORS = ["green", "blue", "red", "pink"]
-    def remove_color(self, str):
-        ''' Sometimes, model puts color to object, this is a workaround '''
-        for color in self.COLORS:
-            if color in str:
-                str = str.replace(color+" ", "") # "blue box" -> "box"
-                str = str.replace(color, "") # "blue" -> "", does nothing if not found
-        return str
-    
-    RELATIONS = ["into"]
-    def remove_relation(self, str):
-        ''' Sometimes, model puts relation into an action, this is a workaround '''
-        for relation in self.RELATIONS:
-            if relation in str:
-                str = str.replace(" "+relation, "") # "blue box" -> "box"
-                str = str.replace(relation, "") # "blue" -> "", does nothing if not found
-        return str
-
-    def sort_types(self, str):
-        if "action: " in str:
-            str = str.split("action: ")[-1]
-            str = self.remove_relation(str)
-            return "target_action", str
-        if "object: " in str:
-            str = str.split("object: ")[-1]
-            str = self.remove_color(str)
-            return "target_object", str
-        if "color: " in str:
-            str = str.split("color: ")[-1]
-            return "target_object_color", str
-        if "relationship: " in str:
-            str = str.split("relationship: ")[-1]
-            return "relationship", str
-        raise Exception(f"Either 'action:', 'object:', 'color: ' or 'relationship': in string {str}")
+        self.client.close()
 
 
 def main():
+    """Manual check: `python llm.py` with a running vLLM server."""
     sp = SentenceProcessor()
-    # print(f"Result: {sp.raw_predict('Pick a green book.')}")
-    
-    output = sp.predict_with_probs(
-        asr_prompt=[
-            [0.0, {"Pick": 1.0, "Kick": 0.2}],
-            [0.1, {"a": 0.9, "the": 0.1}],
-            [0.2, {"blue": 0.8, "green": 0.2}],
-            [0.3, {"box": 0.7, "blocks": 0.3}]
-        ]
-    )
-    print(f"Result: {output}")
-    # Returns: "Pick a blue box"
-
     try:
         while True:
             prompt = input("Enter: ")
-            # print(f"Sample prompt: {prompt}")
-            print(f"Result: {sp.raw_predict(prompt)}")
+            print(f"Result: {sp.raw_predict(prompt, role_description='You are a helpful assistant.')}")
     except KeyboardInterrupt:
         exit()
+
 
 if __name__ == "__main__":
     main()

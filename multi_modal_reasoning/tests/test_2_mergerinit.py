@@ -14,11 +14,10 @@ def ros_context():
 
 @pytest.fixture(scope="module")
 def dummy_merger():
-    """Merger instance that uses an arbitrary model name."""
+    """Merger instance using whatever model the vLLM server serves."""
     return ReasoningMerger(
-        name_user="casper",
-        model_name="Qwen/Qwen3-0.6B",  # << the model under test
         tts_enabled=False,
+        stt_enabled=False,
     )
 
 COMCON = {
@@ -46,23 +45,15 @@ _COMMON_KWARGS = dict(
     command_constraints=COMCON,
 )
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        pytest.param("Qwen/Qwen3-1.7B",                           id="qwen3"),
-        pytest.param("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", id="deepseek"),
-        pytest.param("LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct",      id="exaone"),
-        pytest.param("ibm-granite/granite-3.1-2b-instruct",       id="granite"),
-    ],
-)
-def merger(request):
+@pytest.fixture(scope="module")
+def merger():
+    # The reasoning model is whatever the vLLM server is serving.
     m = ReasoningMerger(
-        name_user="casper",
-        model_name=request.param,
         tts_enabled=False,
+        stt_enabled=False,
     )
     yield m                           # ---- tests run here ----
-    m.hri.delete()                    # tear-down after last test in module
+    m.delete()                        # tear-down after last test in module
     
 """ When I install this package, I always try to run this function """
 def test_just_to_see_if_works(merger):
@@ -77,14 +68,10 @@ def test_just_to_see_if_works(merger):
         gesture_stamped = [
             [0.4, "cup1"],
         ],
-        role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S, version="v4"),
+        role_description=get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S, version="structured"),
         command_constraints=COMCON,
-        max_new_tokens = 1000,
-        temperature = 0.0,
-        top_p = 1.0,
-        repetition_penalty = 1.1,
     )
-    merger.save_log("pick cup1", skill_command, [[0.0, "pick"],[0.1, "green"],[0.4, "cup"],], [ [0.4, "cup1"],], S, ["cup1", "drawer", "bowl"], 1000, 0.0, 1.0, 1.1, COMCON, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S))
+    merger.save_log("pick cup1", skill_command, [[0.0, "pick"],[0.1, "green"],[0.4, "cup"],], [ [0.4, "cup1"],], S, ["cup1", "drawer", "bowl"], COMCON, get_role_description(A=["pick", "push", "pour"], O=["cup1", "drawer", "bowl"], S=S, version="structured"))
 
     # merger.hri.delete()
     
@@ -92,10 +79,8 @@ def test_just_to_see_if_works(merger):
 @pytest.mark.parametrize(
     "time_limit",
     [
-        pytest.param(2, id="under_2s"),
-        pytest.param(5, id="under_5s"),
-        pytest.param(10, id="under_10s"),
-        pytest.param(20, id="under_20s"),
+        pytest.param(0.5, id="under_500ms"),
+        pytest.param(1, id="under_1s"),
     ],
 )
 def test_merge_completes_within_limit(merger, time_limit):

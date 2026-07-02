@@ -1,19 +1,55 @@
+import json
 from copy import deepcopy
-# THESE ARE USED TO DISCARD THINGS FROM SkillCommand 
+# THESE ARE USED TO DISCARD THINGS FROM SkillCommand
 COLORS = ["green", "blue", "red", "pink", "yellow", "black", "orange"]
 RELATIONS = ["to", "into", "onto", "from"]
 from naive_merger.utils import cc
 
 SKILL_COMMAND_TEMPLATE = {
-    "property": "", 
+    "property": "",
     "target_action": "",
-    "relationship": "", 
-    "target_object": "", 
-    "target_object2": "", 
+    "relationship": "",
+    "target_object": "",
+    "target_object2": "",
     "target_object_color": "",
     "direction": "",
     "metric": "",
 }
+
+# Defaults for directional commands when the command_constraints don't specify them.
+DEFAULT_DIRECTIONS = ["left", "right", "forward", "backward", "up", "down"]
+DEFAULT_UNITS = ["mm", "cm", "m"]
+NONE = "none"  # sentinel emitted by the model for "field does not apply"
+
+
+def build_command_schema(command_constraints: dict) -> dict:
+    """JSON schema for vLLM guided decoding: the model may only pick allowed
+    values per field, so the reply is always valid, schema-conforming JSON
+    (no reasoning preamble, no free text). Rendered to a command by
+    `SkillCommand.from_structured`."""
+    cc_ = command_constraints
+
+    def enum(values):
+        # de-duplicate while preserving order, always allow "none"
+        return {"type": "string", "enum": list(dict.fromkeys([*values, NONE]))}
+
+    objects = cc_.get("objects", [])
+    return {
+        "type": "object",
+        "properties": {
+            "action": enum(cc_.get("actions", [])),
+            "speed": enum(cc_.get("adjectives", [])),
+            "object1": enum(objects),
+            "relation": enum(cc_.get("prepositions", ["to"])),
+            "object2": enum(objects),
+            "direction": enum(cc_.get("directions", DEFAULT_DIRECTIONS)),
+            "distance": {"type": "string"},  # a number as text, e.g. "1", "0.5", or "none"
+            "unit": enum(cc_.get("units", DEFAULT_UNITS)),
+        },
+        "required": ["action", "speed", "object1", "relation", "object2",
+                     "direction", "distance", "unit"],
+        "additionalProperties": False,
+    }
 
 class SkillCommand():
     def __init__(self,
@@ -116,6 +152,31 @@ class SkillCommand():
             return False
 
     @classmethod
+    def from_structured(cls, structured: dict, command_constraints, reasoning_text: str = ""):
+        """Deterministically render a schema-conforming dict (see
+        `build_command_schema`) into a SkillCommand. The model only picks
+        allowed values; the final command string is formatted here."""
+        def clean(v):
+            if v is None:
+                return ""
+            v = str(v).strip().lower()
+            return "" if v in (NONE, "null", "") else v
+
+        distance = clean(structured.get("distance"))
+        unit = clean(structured.get("unit"))
+        metric = f"{distance}{unit}" if distance else ""
+
+        r = deepcopy(SKILL_COMMAND_TEMPLATE)
+        r["property"] = clean(structured.get("speed")) or clean(structured.get("property"))
+        r["target_action"] = clean(structured.get("action"))
+        r["relationship"] = clean(structured.get("relation")) or clean(structured.get("relationship"))
+        r["target_object"] = clean(structured.get("object1"))
+        r["target_object2"] = clean(structured.get("object2"))
+        r["direction"] = clean(structured.get("direction"))
+        r["metric"] = metric
+        return cls(r, command_constraints, reasoning_text or json.dumps(structured))
+
+    @classmethod
     def from_predicted(cls, predicted_text, command_constraints):
         """ Parsing the LLM string output to `brackets`. """
         
@@ -130,6 +191,9 @@ class SkillCommand():
             response = response.replace("```", "")
             response = response.replace("json", "")
 
+            # Reasoning models (e.g. deepseek) emit chain-of-thought text
+            # before/after the JSON, so isolate the JSON object first.
+            response = response[response.index("{"):response.rindex("}") + 1]
             parsedjson = json.loads(response)
             r = deepcopy(SKILL_COMMAND_TEMPLATE)
             mergeddict = r | parsedjson

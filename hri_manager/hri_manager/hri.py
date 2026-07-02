@@ -28,6 +28,7 @@ class HRI(HCI, Feedback_for_HRI):#, LfD):
         super(HRI, self).__init__()
         # self.start() # Starts robotic controller
 
+        # TODO: Send Playskill msg, not use LfD directly. LfD should be a separate node, not part of HRI.
         self.lfd = None
 
     @property
@@ -84,11 +85,6 @@ class HRI(HCI, Feedback_for_HRI):#, LfD):
             print("Dry run; Returning", flush=True)
             return
         
-        # Execution contraint
-        # valid = name_template in name_skill # is "sponge" (template) in "pick_sponge" (skill)
-        # if not valid:
-        #     print(f"Template action is invalid {name_template} not in {name_skill}", flush=True)
-        #     return
         
         if not self.lfd.set_localizer_client.wait_for_service(timeout_sec=5.0):
             self.speak(f"Localization service is unavailable! Returning")

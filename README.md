@@ -79,9 +79,24 @@ Play with [llm.py:ROLE_DESCRIPTION](multi_modal_reasoning/models/llm.py)
 # TransforMerger
 
 Usage:
-1. `sudo leapd` Gesture sensor backend
-2. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=demo` Gesture detectors
-2. `ros2 run ulti_modal_reasoning multi_modal_reasoning --name_user demo` 
+1. `vllm serve Qwen/Qwen2.5-3B-Instruct --port 8000` Start the reasoning LLM server (see suggested models below). The merger auto-discovers whichever model is served; point it elsewhere with `VLLM_BASE_URL`.
+2. `sudo leapd` Gesture sensor backend
+3. `ros2 launch gesture_sentence_maker sentence_maker_launch.py sensor:=leap user_name:=demo` Gesture detectors
+4. `ros2 run multi_modal_reasoning multi_modal_reasoning`
+
+### Reasoning LLM (vLLM server)
+
+The LLM runs in a separate [vLLM](https://docs.vllm.ai) server (OpenAI-compatible API); the merger is just a client (see `multi_modal_reasoning/models/llm.py`). Start it with `vllm serve <model> --port 8000`.
+
+Use small **instruct** (non-reasoning) models — the merger forces schema-constrained JSON output, so a plain instruct model avoids the empty-output failure mode of thinking models. Suggested (≈fp16 VRAM):
+- `Qwen/Qwen2.5-3B-Instruct` (~6 GB) — best all-round pick: strong JSON adherence, no thinking mode.
+- `Qwen/Qwen3-4B-Instruct-2507` (~8 GB) — instruct-only Qwen3; best on noisy/ambiguous commands.
+- `meta-llama/Llama-3.2-3B-Instruct` (~6 GB) — reliable baseline.
+- `microsoft/Phi-4-mini-instruct` (3.8B, ~8 GB) — strong extraction per parameter.
+- `google/gemma-3-4b-it` (~8 GB) — strong instruction-following.
+- `ibm-granite/granite-3.3-2b-instruct` (~4 GB) — lightweight.
+
+Smaller (`Qwen/Qwen2.5-1.5B-Instruct`, `HuggingFaceTB/SmolLM2-1.7B-Instruct`, ~3 GB) run fastest but are weaker on adversarial multi-verb commands.
 
 Parameters:
 1. Common-Set of Gestures set by default: See the `teleop_gesture_toolbox:README.md` on how to create new gestures
@@ -91,16 +106,10 @@ Parameters:
 2. Set of Skills and Scene Object recognition: See the `franka_learning_from_demonstrations_ros2:README.md` on how to record new skills and save new scene object detection as a new template. (recommended: for new setup, create your own set of skills)
 3. Scene objects setup. Choore or define scene properties: `scenes/scene_1.yaml` and change `scene_getter.scene_makers.mocked_scene_maker.py:SCENE_FILE` (const scene set)
 4. User preferences: `hri_manager/links/<username>_links.yaml` (var)
-5. Merger params:
-  - `--name_user`, The user name, `default="casper"` (var)
-  - `--name_model`, The user name, `default="SultanR/SmolTulu-1.7b-Instruct"`
-  - `--dry_run`, Dont play skills, `default=True`
-  - `--temperature`, 0.0 is deterministic, `default=0.0`
-  - `--top_p`, `default=1.0`, 
-  - `--repetition_penalty`, `default=1.1`, 
-  - `--max_new_tokens`, max words output, `default=1000`
-  - Choose role description `version` manually at `role_setup.py`
-  - `--config_name`, defines valid actions for constraining the skillcommand
+5. Merger CLI args (`ros2 run multi_modal_reasoning multi_modal_reasoning ...`):
+  - `--config_name`, valid actions/objects/scene that constrain the SkillCommand, `CONFIG_DEMO` or `CONFIG3`, `default="CONFIG_DEMO"`
+  - `--role_version`, system-prompt template, `default="structured"` (use `structured_directions` for move commands)
+  - The reasoning model is whatever the vLLM server serves (not a CLI arg). Sampling is fixed deterministic (temperature 0, greedy) in `models/llm.py`.
 
 
 Notes:
@@ -116,7 +125,7 @@ Notes:
 Visualize dependencies across existing skills: `lfdenv; python src/franka_hri/hri_manager/monitor_dashboards/visualize_links.py` and see browser at `localhost:8077`
 Visualize skills (from franka_learning_from_demonstration_ros2): `lfdenv; python src/franka_learning_from_demonstrations_ros2/trajectory_data/trajectory_data/skill_visualizer.py` and see `localhost:8076`
 
-TODO: Visualize merge logs: `lfdenv; python franka_hri/hri_manager/monitor_dashboards/visualize_merges.py` and see `localhost:8075`
+Visualize merge logs: `lfdenv; python src/franka_hri/multi_modal_reasoning/multi_modal_reasoning/saved_logs/visualize_merges.py` and see `localhost:8075`
 
 (super-optional) What I like is to creating shortcut links by using script [hri_manager/install_accessible_links.sh](see here) `sudo bash franka_hri/hri_manager/install_accessible_links.sh`, then you don't have to remember the port: `http://skills`, `http://skill_links`, `http://hri_log`.
 

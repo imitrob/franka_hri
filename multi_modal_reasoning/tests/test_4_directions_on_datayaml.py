@@ -16,14 +16,23 @@ with DATA_PATH.open() as f:
 _CASES: list[dict] = _DATA["cases"]
 
 
-COM_CON = {"directional_actions": ["move"], "actions": ["move"], "adjectives": []}
+COM_CON = {
+    "directional_actions": ["move"],
+    "zero_object_actions": [],
+    "single_object_actions": [],
+    "double_object_actions": [],
+    "actions": ["move"],
+    "adjectives": [],
+    "prepositions": ["to"],
+    "objects": [],
+}
 # 2. Common kwargs for every merger.merge() call                              #
 _COMMON_KWARGS = dict(
     role_description=get_role_description(
         A=["move"],
         O=[],
         S="",
-        version="DIRECTIONS",
+        version="structured_directions",
     ),
     command_constraints=COM_CON,
 )
@@ -47,23 +56,15 @@ def ros_context():
     yield
     rclpy.shutdown()    
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        pytest.param("Qwen/Qwen3-1.7B", id="qwen3"),
-        pytest.param("LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", id="exaone"),
-        pytest.param("ibm-granite/granite-3.1-2b-instruct", id="granite"),
-        pytest.param("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", id="deepseek"),
-    ],
-)
-def merger(request):
+@pytest.fixture(scope="module")
+def merger():
+    # The reasoning model is whatever the vLLM server is serving.
     m = ReasoningMerger(
-        name_user="casper",
-        model_name=request.param,
         tts_enabled=False,
+        stt_enabled=False,
     )
     yield m                           # ---- tests run here ----
-    m.hri.delete()                    # tear-down after last test in module
+    m.delete()                        # tear-down after last test in module
     
 # 5. The single parametrised test                                             #
 @pytest.mark.parametrize("voice, gesture, expected", _PARAMS)

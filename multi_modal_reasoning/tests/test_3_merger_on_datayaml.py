@@ -23,8 +23,8 @@ COMCON = {
     "double_object_actions": ["pour"],
     "actions": ["pick", "push", "pour"], # all actions
     "adjectives": ["fast","slow","force"],
-    #"prepositions": ["to"], #["to", "into", "onto", "from"],
-    #"object_types": ["cup", "cube", "plate", "table", "can", "box", "fork", "marker", "note", "storage", "blade", "rack", "ledge", "stand", "platform"],
+    "prepositions": ["to"],
+    "objects": ["cup1", "container1", "bowl1"], # valid grounded objects for guided decoding
 }
 
 # 2. Common kwargs for every merger.merge() call                              #
@@ -33,7 +33,7 @@ _COMMON_KWARGS = dict(
         A=["pick", "push", "pour"],
         O=["cup1", "container1", "bowl1"],
         S=SCENE,
-        version="v5",
+        version="structured",
     ),
     command_constraints=COMCON,
 )
@@ -57,24 +57,15 @@ def ros_context():
     yield
     rclpy.shutdown()    
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        # pytest.param("Qwen/Qwen3-1.7B", id="qwen3"),
-        pytest.param("LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct", id="exaone"),
-        # pytest.param("ibm-granite/granite-3.1-2b-instruct", id="granite"),
-        # pytest.param("Qwen/Qwen2-1.5B-Instruct", id="qwen21.5"),
-        # pytest.param("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", id="deepseek"),
-    ],
-)
-def merger(request):
+@pytest.fixture(scope="module")
+def merger():
+    # The reasoning model is whatever the vLLM server is serving.
     m = ReasoningMerger(
-        name_user="casper",
-        model_name=request.param,
         tts_enabled=False,
+        stt_enabled=False,
     )
     yield m                           # ---- tests run here ----
-    m.hri.delete()                    # tear-down after last test in module
+    m.delete()                        # tear-down after last test in module
     
 # 5. The single parametrised test                                             #
 @pytest.mark.parametrize("voice, gesture, expected", _PARAMS)
