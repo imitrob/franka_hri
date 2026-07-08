@@ -7,7 +7,7 @@ Then, point VLLM_BASE_URL to it (default: http://localhost:8000/v1).
 """
 import json
 import os
-from openai import OpenAI
+from openai import APIConnectionError, OpenAI
 
 DEFAULT_BASE_URL = "http://localhost:8000/v1"
 REQUEST_TIMEOUT = 120.0  # [s] generation of long reasoning chains can take a while
@@ -48,7 +48,10 @@ class SentenceProcessor():
             timeout=REQUEST_TIMEOUT,
         )
         # Fail fast with a helpful message when the server is down / serves nothing
-        served = [m.id for m in self.client.models.list()]
+        try:
+            served = [m.id for m in self.client.models.list()]
+        except APIConnectionError as e:
+            raise RuntimeError(f"No vLLM server at {self.client.base_url}. Start one with: vllm serve <model>") from e
         if not served:
             raise RuntimeError(f"No model served at {self.client.base_url}. Start one with: vllm serve <model>")
         self.model_name = served[0]

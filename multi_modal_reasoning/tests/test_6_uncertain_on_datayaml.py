@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+"""Uncertain commands (e.g. "pick up this" with no gesture): the merger must
+fall back with no action to execute -- the merged SkillCommand has to be
+invalid (is_valid() == False), which is what play_skillcommand() checks
+before handing the command to the robot."""
 from multi_modal_reasoning.reasoning_merger import ReasoningMerger
 from multi_modal_reasoning.role_setup import get_role_description
-from multi_modal_reasoning.skill_command import SkillCommand
 from hri_manager.user_links import load_user_links
 
 import pathlib
@@ -9,7 +12,7 @@ import yaml
 import pytest
 
 # 1. Load test-case data from YAML                                            #
-DATA_PATH = pathlib.Path(__file__).with_name("data") / "reasoning_cases.yaml"
+DATA_PATH = pathlib.Path(__file__).with_name("data") / "uncertain_cases.yaml"
 with DATA_PATH.open() as f:
     _DATA = yaml.safe_load(f)
 
@@ -36,7 +39,6 @@ _PARAMS = [
     pytest.param(
         case["voice"],               # voice_stamped
         case["gesture"],             # gesture_stamped
-        SkillCommand(case["expected"], COMCON),
         id=case.get("id", f"case-{idx}"),
     )
     for idx, case in enumerate(_CASES, start=1)
@@ -49,14 +51,16 @@ def merger():
     m = ReasoningMerger()
     yield m                           # ---- tests run here ----
     m.delete()                        # tear-down after last test in module
-    
+
 # 5. The single parametrised test                                             #
-@pytest.mark.parametrize("voice, gesture, expected", _PARAMS)
-def test_reasoning_cases(merger: ReasoningMerger, voice, gesture, expected):
+@pytest.mark.parametrize("voice, gesture", _PARAMS)
+def test_uncertain_cases(merger: ReasoningMerger, voice, gesture):
     result = merger.merge(
         voice_stamped=voice,
         gesture_stamped=gesture,
         **_COMMON_KWARGS,
     )
-    # merger.hri.delete()
-    assert result == expected, f"SEE THIS: PREDICTED: {result} != GROUND TRUTH: {expected}\n Raw LM reasoning:{result.reasoning_text}"
+    assert not result.is_valid(), (
+        f"SEE THIS: PREDICTED: {result} is executable, but the command is uncertain "
+        f"and must NOT be executed\n Raw LM reasoning:{result.reasoning_text}"
+    )

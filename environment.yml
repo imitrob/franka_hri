@@ -31,8 +31,6 @@ dependencies:
 - pynput
 - scipy
 - roboticstoolbox-python
-- pymc=5.21.1 # (version might be omitted)
-- arviz=0.21.0
 - fastdtw
 - pytorch=2.4.0=py3.11_cuda12.4_cudnn9.1.0_0 # make sure the cpu version is NOT installed AND make sure all torch/vision/audio are from pytorch channel
 - pytorch-cuda=12.4

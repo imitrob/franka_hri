@@ -1,0 +1,41 @@
+user: test
+# Command constraints for the multi_modal_reasoning test suite: the union of
+# what all tests need (pick/push/pour cases from reasoning_cases.yaml and
+# uncertain_cases.yaml + the directional move cases from
+# directional_cases.yaml). The overall `actions` list is derived from the
+# arity lists (see hri_manager/user_links.py). The scene comes from each
+# test's data yaml, not from here.
+directional_actions:
+- move
+zero_object_actions: []
+single_object_actions:
+- pick
+- push
+double_object_actions:
+- pour
+# Objects are CLASSES (the user's vocabulary), not scene instances: grounded
+# instances (cup1, bowl1, ...) belong to the scene, so each test's data yaml
+# provides them and the tests override `objects` with that list.
+objects:
+- cup
+- container
+- bowl
+adjectives:
+- fast
+- slow
+- force
+prepositions:
+- to
+directions:
+- left
+- right
+- forward
+- backward
+- up
+- down
+units:
+- mm
+- cm
+- m
+scene_text: ''
+links: {}

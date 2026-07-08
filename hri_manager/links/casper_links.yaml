@@ -1,23 +1,16 @@
 user: casper
-actions:
+directional_actions: []
+zero_object_actions: []
+single_object_actions:
 - sponge_wipe
 - open_drawer
 - handle_screwdriver
 - pick_lid
+double_object_actions: []
 objects:
 - sponge_wipe
 - open_drawer
 - handle_screwdriver
-- pick_lid
-all_action_words:
-- wipe
-- open
-- hand me
-- pick
-all_object_action_words:
-- sponge
-- drawer
-- screwdriver
 - pick_lid
 links:
   link1:

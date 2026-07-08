@@ -22,7 +22,6 @@ setup(
     entry_points={
         'console_scripts': [
             "action_executor = hri_manager.action_executor:action_executor",
-            "action_executor_dry_run = hri_manager.action_executor:action_executor_dry_run",
             "link_gesture_to_action = hri_manager.link_gesture_to_action:main",
         ],
     },

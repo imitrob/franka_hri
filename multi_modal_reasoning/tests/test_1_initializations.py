@@ -1,20 +1,7 @@
 import pytest
-import rclpy
 from multi_modal_reasoning.skill_command import SkillCommand
 
-@pytest.fixture(scope="session", autouse=True)
-def ros_init_shutdown():
-    """
-    Initialize rclpy once per pytest session, and shutdown at the end.
-    """
-    # Initialize ROS
-    rclpy.init()
-    yield
-    # Shutdown ROS after all tests
-    try:
-        rclpy.shutdown()
-    except Exception:
-        pass
+# rclpy is initialised once per session in conftest.py (ros_context fixture)
 
 import pytest
 import rclpy

@@ -1,0 +1,40 @@
+# Uncertain commands: the modalities do not determine what to do (vague
+# object with no gesture, missing pour target, no action at all). The model
+# must NOT guess -- the resulting SkillCommand has to be not executable
+# (is_valid() == False), so the merger falls back and nothing runs.
+
+scene: >
+  In the scene are three objects. The cup1 is big red cup. The container1
+  is wide blue container. bowl1 is green small bowl.
+
+# Grounded object instances present in the scene above (the links yaml only
+# holds object classes; commands ground to these instances).
+objects:
+- cup1
+- container1
+- bowl1
+
+cases:
+  - id: pick-this-uncertain
+    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "this"]]
+    gesture: []
+
+  - id: push-it-uncertain
+    voice: [[0.0, "Push"], [0.1, "it"]]
+    gesture: []
+
+  - id: pick-no-object-uncertain
+    voice: [[0.0, "Pick"], [0.1, "up"]]
+    gesture: []
+
+  - id: pour-no-target-uncertain
+    voice: [[0.0, "Pour"], [0.1, "cup1"], [0.2, "to"]]
+    gesture: []
+
+  - id: no-action-uncertain
+    voice: [[0.0, "hello"], [0.1, "robot"]]
+    gesture: []
+
+  - id: object-only-uncertain
+    voice: [[0.0, "the"], [0.1, "red"], [0.2, "cup"]]
+    gesture: []

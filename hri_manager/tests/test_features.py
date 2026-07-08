@@ -30,23 +30,18 @@ def ros_context():
 
 @pytest.fixture(scope="module")
 def hri():
-    """A dry-run HRI (no robot) with TTS + STT models loaded."""
+    """An HRI holding only clients (skills published to the robot node, LLM in
+    the vLLM server, STT/TTS in their server nodes). Init needs the vLLM
+    server; speech tests need stt_node/tts_node running to do real work."""
     if not Path(f"{hri_manager.package_path}/links/{USER}_links.yaml").is_file():
         pytest.skip(f"missing links/{USER}_links.yaml")
     from hri_manager.hri import HRI
     try:
-        h = HRI(name_user=USER, dry_run=True)
-    except Exception as exc:  # models/audio hardware not available
+        h = HRI(name_user=USER)
+    except Exception as exc:  # audio hardware/vLLM server not available
         pytest.skip(f"cannot initialise HRI: {exc}")
 
     yield h
-
-    # HCI.delete() assumes a sentence_processor (set only by ReasoningMerger),
-    # so free the models this HRI actually owns directly.
-    if h.tts_enabled:
-        h.tts.delete()
-    if h.stt_enabled:
-        h.stt.delete()
 
 
 @pytest.mark.timeout(120)

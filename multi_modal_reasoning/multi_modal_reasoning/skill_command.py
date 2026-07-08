@@ -70,7 +70,7 @@ class SkillCommand():
         if isinstance(r, str):
             r = r.split(" ")
             
-            if r[0] in command_constraints["adjectives"]:
+            if r[0] in command_constraints.get("adjectives", []):
                 self.action_parameter = r[0]
                 self.command = f"{r[0]} "
                 add = 1
@@ -79,57 +79,57 @@ class SkillCommand():
                 add = 0
 
             try:
-                if r[0 + add] in command_constraints["directional_actions"]:
+                if r[0 + add] in command_constraints.get("directional_actions", []):
                     self.target_action = r[0 + add]
                     self.target_direction = r[1 + add]
                     self.target_action_metric = r[2 + add]
                     self.command += f"{r[0 + add]} {r[1 + add]} {r[2 + add]}"
-                elif r[0 + add] in command_constraints["zero_object_actions"]:
+                elif r[0 + add] in command_constraints.get("zero_object_actions", []):
                     self.target_action = r[0 + add]
                     self.command += f"{r[0 + add]}"
-                elif r[0 + add] in command_constraints["single_object_actions"]:
+                elif r[0 + add] in command_constraints.get("single_object_actions", []):
                     self.target_action = r[0 + add]
                     self.target_object = r[1 + add]
                     self.command += f"{r[0 + add]} {r[1 + add]}"
-                elif r[0 + add] in command_constraints["double_object_actions"]:
+                elif r[0 + add] in command_constraints.get("double_object_actions", []):
                     self.target_action = r[0 + add]
                     self.target_object = r[1 + add]
                     self.object_preposition = r[2 + add]
                     self.target_object2 = r[3 + add]
                     self.command += f"{r[0 + add]} {r[1 + add]} {r[2 + add]} {r[3 + add]}"
                 else: 
-                    print("No known action", r[0 + add], " not in ", command_constraints["actions"])
+                    print("No known action", r[0 + add], " not in ", command_constraints.get("actions", []))
                     self.command = "" 
             except IndexError:
                 pass # This SkillCommand is not valid and function is_valid() -> False
 
         elif isinstance(r, dict):
-            if r['property'] in command_constraints["adjectives"]:
+            if r['property'] in command_constraints.get("adjectives", []):
                 self.action_parameter = r['property']
                 self.command = f"{r['property']} "
             else:
                 self.command = f""
             
-            if r["target_action"] in command_constraints["directional_actions"]:
+            if r["target_action"] in command_constraints.get("directional_actions", []):
                 self.target_action = r["target_action"]
                 self.target_direction = r['direction']
                 self.target_action_metric = r['metric']
                 self.command += f"{r['target_action']} {r['direction']} {r['metric']}"
-            elif r["target_action"] in command_constraints["zero_object_actions"]:
+            elif r["target_action"] in command_constraints.get("zero_object_actions", []):
                 self.target_action = r["target_action"]
                 self.command += f"{r['target_action']}"
-            elif r["target_action"] in command_constraints["single_object_actions"]:
+            elif r["target_action"] in command_constraints.get("single_object_actions", []):
                 self.target_action = r["target_action"]
                 self.target_object = r['target_object']
                 self.command += f"{r['target_action']} {r['target_object']}"
-            elif r["target_action"] in command_constraints["double_object_actions"]:
+            elif r["target_action"] in command_constraints.get("double_object_actions", []):
                 self.target_action = r["target_action"]
                 self.target_object = r['target_object']
                 self.object_preposition = r['relationship']
                 self.target_object2 = r['target_object2']
                 self.command += f"{r['target_action']} {r['target_object']} {r['relationship']} {r['target_object2']}"
             else: 
-                print("No known action", r['target_action'], " not in ", command_constraints["actions"])
+                print("No known action", r['target_action'], " not in ", command_constraints.get("actions", []))
                 self.command = "" 
         else: raise Exception()
 
@@ -291,33 +291,38 @@ class SkillCommand():
         if not isinstance(self.target_object2, str) and self.target_object2 is not None: not_valid += f"{self.target_object2} is not str or None"
         if not isinstance(self.object_preposition, str) and self.object_preposition is not None: not_valid += f"{self.object_preposition} is not str or None"
 
+        # An empty string means the field was not resolved (e.g. the model
+        # answered "none" for an uncertain command) -> treated as missing.
+        def missing(v):
+            return v is None or v == ""
+
         # REMOVED TEMPORARILY AS THIS IS NOT VALID ANYMORE
         # if self.target_object is not None:
         #     if self.target_object[-1] not in "0123456789":
         #         not_valid += "object must have its id as last char"
-        if self.object_preposition is not None:
-            if self.target_object2 is None:
-                not_valid += "object must have its id as last char"
+        if not missing(self.object_preposition):
+            if missing(self.target_object2):
+                not_valid += "Preposition without second object"
         # if self.target_object2 is not None:
         #     if self.target_object2[-1] not in "0123456789":
         #         not_valid += "object must have its id as last char"
 
-        if self.target_action in self.command_constraints["zero_object_actions"]:
-            if self.target_object is not None or self.target_object2 is not None:
+        if self.target_action in self.command_constraints.get("zero_object_actions", []):
+            if not missing(self.target_object) or not missing(self.target_object2):
                 not_valid += "Not correct object number defined"
-        elif self.target_action in self.command_constraints["single_object_actions"]:
-            if self.target_object is None or self.target_object2 is not None:
+        elif self.target_action in self.command_constraints.get("single_object_actions", []):
+            if missing(self.target_object) or not missing(self.target_object2):
                 not_valid += "Not correct object number defined"
-        elif self.target_action in self.command_constraints["double_object_actions"]:
-            if self.target_object is None or self.target_object2 is None:
+        elif self.target_action in self.command_constraints.get("double_object_actions", []):
+            if missing(self.target_object) or missing(self.target_object2):
                 not_valid += "Not correct object number defined"
-        elif self.target_action in self.command_constraints["directional_actions"]:
-            if self.target_object is not None or self.target_object2 is not None:
+        elif self.target_action in self.command_constraints.get("directional_actions", []):
+            if not missing(self.target_object) or not missing(self.target_object2):
                 not_valid += "Not correct object number defined"
         else: raise Exception("Action not in list!")
 
-        if self.target_object is not None and self.target_object2 is not None:
-            if self.object_preposition is None:
+        if not missing(self.target_object) and not missing(self.target_object2):
+            if missing(self.object_preposition):
                 not_valid += "Double object action and no preposition"
 
         if not_valid == "":

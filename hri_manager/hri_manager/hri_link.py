@@ -33,29 +33,29 @@ class Link():
         except FileNotFoundError:
             data_dict = {
                     "user": self.user_name,
-                    "actions": [],
-                    "all_action_words": [],
-                    "all_object_action_words": [],
+                    "directional_actions": [],
+                    "zero_object_actions": [],
+                    "single_object_actions": [],
+                    "double_object_actions": [],
+                    "objects": [],
                     "links": {},
                 }
             with open(f"{hri_manager.package_path}/links/{self.user_name}_links.yaml", mode="w") as file:
                 yaml.safe_dump(data_dict, file, sort_keys=False)
 
-        # Add the action_template to actions list if not present
-        if new_link["action_template"] not in data_dict["actions"]:
-            data_dict["actions"].append(new_link["action_template"])
+        # Register the action in the arity lists if not present. The overall
+        # `actions` list is derived from these (see user_links.py). A taught
+        # link pairs the action with one object template -> single-object.
+        known_actions = (data_dict.get("directional_actions", [])
+                         + data_dict.get("zero_object_actions", [])
+                         + data_dict.get("single_object_actions", [])
+                         + data_dict.get("double_object_actions", []))
+        if new_link["action_template"] not in known_actions:
+            data_dict.setdefault("single_object_actions", []).append(new_link["action_template"])
 
         # Add the action_template to actions list if not present
         if new_link["object_template"] not in data_dict["objects"]:
             data_dict["objects"].append(new_link["object_template"])
-
-        for action_word in new_link["action_words"]: 
-            if action_word not in data_dict["all_action_words"]:
-                data_dict["all_action_words"].append(action_word)
-
-        for object_action_word in new_link["object_words"]:
-            if object_action_word not in data_dict["all_object_action_words"]:
-                data_dict["all_object_action_words"].append(object_action_word)
 
         # Add the new link to links with a unique key
         new_link_name = f"link{len(data_dict['links']) + 1}"  # Generate unique link name

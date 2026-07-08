@@ -25,6 +25,8 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/HRICommand.msg"
   "msg/WhisperText.msg"
+  "srv/Transcribe.srv"
+  "srv/Speak.srv"
 
   DEPENDENCIES builtin_interfaces std_msgs sensor_msgs geometry_msgs
 )

@@ -1,128 +1,75 @@
 #!/usr/bin/env python
-from skills_manager.lfd import LfD
-from hri_manager.feedback_for_hri import Feedback_for_HRI
-from hri_manager.hci import HCI
-from skills_manager.skill import Skill
+"""Human-robot interaction node.
 
-from lfd_msgs.srv import SetTemplate
-from std_srvs.srv import Trigger
+Every model runs in its own server; HRI only holds clients (see
+hri_manager/interaction.py for the shared interaction functions):
+- LLM: vLLM server, SentenceProcessor client (multi_modal_reasoning/models/llm.py)
+- Speech-to-text: stt_node, SpeechToTextClient (__call__(file) -> text)
+- Text-to-speech: tts_node, TextToSpeechClient (speak(text))
+- Robot: the LfD node subscribes to SKILL_COMMAND_TOPIC; skills are published
+  there, never executed in-process.
+"""
+import json
 
-from multi_modal_reasoning.skill_command import SkillCommand
-from naive_merger.utils import cc
+from gesture_sentence_maker.gesture_sentence_getter import GestureSentenceGetter
 
-class HRI(HCI, Feedback_for_HRI):#, LfD):
-    def __init__(self,
-                name_user: str,
-                tts_enabled: bool = True,
-                dry_run: bool = False,
-                nlp_model_name: str = None,
-                stt_type: str = "deterministic",
-                stt_enabled: bool = True,
-                ):
-        self.tts_enabled = tts_enabled
-        self.dry_run = dry_run
+from std_msgs.msg import String
+
+from skills_manager.ros_utils import SpinningRosNode
+from hri_manager.interaction import InteractionNode
+from hri_manager.user_links import load_user_links
+from scene_getter.scene_getting import SceneGetter
+
+
+class HRI(SceneGetter, InteractionNode, SpinningRosNode):
+    def __init__(self, name_user: str):
         self.user = name_user
-        self.nlp_model_name = nlp_model_name
-        self.stt_type = stt_type
-        self.stt_enabled = stt_enabled
         super(HRI, self).__init__()
-        # self.start() # Starts robotic controller
 
-        # TODO: Send Playskill msg, not use LfD directly. LfD should be a separate node, not part of HRI.
-        self.lfd = None
+        self.user_profile_links_dict = load_user_links(self.user)
+        self.A = self.user_profile_links_dict["actions"]
+        self.O = self.user_profile_links_dict["objects"]
 
-    @property
-    def desk(self):
-        if self.lfd is None: self.init_lfd()
-        
-        return self.lfd.desk
+        self.init_interaction()  # model clients + modality/robot publishers
+        self.gestures = GestureSentenceGetter(self)
 
-    def init_lfd(self):
-        self.lfd = LfD()
-        self.lfd.start()
+    def listen_user(self):
+        self.rec.start_recording()
+        input("Press enter to finish")
+        file, _ = self.rec.stop_recording()
+        return self.stt(file)
 
-
-    def play_skillcommand(self, skillcommand: SkillCommand):
-        
-        print(f"{cc.W}Playing skill command: {skillcommand}{cc.E}")
-
-        # TODO: Check skill validity        
-        if not skillcommand.is_valid(): 
-            self.speak("Skill Command is Not valid, returning!")
-            return
-        
-        
-        if skillcommand.target_action in skillcommand.command_constraints["zero_object_actions"]:
-            self.play_skill(name_skill=skillcommand.target_action, simplify=False)
-
-        if skillcommand.target_action in skillcommand.command_constraints["single_object_actions"]:
-            self.play_skill(name_skill=skillcommand.target_action+"_"+skillcommand.target_object, name_template=skillcommand.target_object, simplify=False)
-
-        if skillcommand.target_action in skillcommand.command_constraints["double_object_actions"]:
-            self.play_skill(name_skill=skillcommand.target_action+"1_"+skillcommand.target_object, name_template=skillcommand.target_object, simplify=False)
-            self.play_skill(name_skill=skillcommand.target_action+"2_"+skillcommand.target_storage, name_template=skillcommand.target_storage, simplify=False)
-
-
-    def play_skill(self, name_skill: str, name_template: str= "", skill_parameter: float = None, simplify=True):
-        """ When simplify==True, target_object == target_actopm
-        """
-        if self.lfd is None: self.init_lfd()
-
+    def play_skill(self,
+            name_skill: str,
+            name_template: str = "",
+            skill_parameter: None | float = None,
+        ):
         if name_skill == "":
             self.speak(f"No action found, try again")
-            return 
-
-        if name_template == "" and simplify:
-            name_template = name_skill # simplified
-            self.speak(f"No object specified! The object is set to {name_template} because Running simplified!")
-        elif simplify:
-            self.speak(f"Your object: {name_template} is changed to {name_skill}, because Running simplified!")
-            name_template = name_skill # simplified
+            return
 
         self.speak(f"Executing {name_skill} with object {name_template}!")
 
-        if self.dry_run:
-            print("Dry run; Returning", flush=True)
-            return
-        
-        
-        if not self.lfd.set_localizer_client.wait_for_service(timeout_sec=5.0):
-            self.speak(f"Localization service is unavailable! Returning")
-            return
-        self.lfd.set_localizer_client.call(SetTemplate.Request(template_name=name_template))
-        self.lfd.move_template_start()
-        self.lfd.active_localizer_client.call(Trigger.Request())
-        self.lfd.compute_final_transform() 
+        self.skill_command_pub.publish(String(data=json.dumps({
+            "command": f"{name_skill} {name_template}".strip(),
+            "target_action": name_skill,
+            "target_object": name_template if name_template != "" else None,
+            "object_preposition": None,
+            "target_object2": None,
+            "action_parameter": skill_parameter,
+        })))
 
-        try:
-            if skill_parameter is not None:
-                self.load_morph_trajectory(skill_parameter, morph_parameter=skill_parameter)
-            else:
-                self.lfd.load(name_skill)
-            print(f"Execution", flush=True)
-            self.lfd.execute()
-        except KeyboardInterrupt: # not working, because there is another thread (Feedback) that shutsdown then KeyboardInterrupt
-            pass
-
-    def load_morph_trajectory(self, name_trajectory, morph_parameter: float):
-        
-        skill1 = Skill().from_file(name_trajectory)
-        skill2 = Skill().from_file(name_trajectory+"_alt")
-
-        morph_skill = skill1.morth_trajectories(skill2, morph_parameter)
-
-        self.loaded_traj = morph_skill.traj_T
-        self.loaded_ori_wxyz = morph_skill.ori_T
-        self.loaded_gripper = morph_skill.grip_T
-        self.loaded_img = morph_skill.img
-        self.loaded_img_feedback_flag = morph_skill.img_feedback_flag_T
-        self.loaded_spiral_flag = morph_skill.spiral_flag_T
-        self.filename=str(morph_skill.filename)
 
 def main():
+    import argparse
     import rclpy
+    parser = argparse.ArgumentParser(description="HRI node")
+    parser.add_argument('--name_user', type=str, help='The user name')
+    args = parser.parse_args()
+
     rclpy.init()
-    hri = HRI()
+    hri = HRI(name_user=args.name_user)
+    hri.speak("HRI is ready!")
 
 if __name__ == "__main__":
     main()

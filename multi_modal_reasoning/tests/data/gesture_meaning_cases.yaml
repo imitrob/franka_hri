@@ -1,0 +1,42 @@
+# Cases for mapping gesture names to action names (OneToOneMapping).
+# `gesture` is a stamped word list as delivered by the gesture modality;
+# `expected` is the same list after gestures are replaced by their actions:
+# gesture names become action words (grab -> pick), gestures without action
+# meaning are dropped, non-gesture words (grounded objects) pass through.
+
+cases:
+  - id: grab-means-pick
+    gesture: [[0.0, "grab"]]
+    expected: [[0.0, "pick"]]
+
+  - id: pinch-means-pick
+    gesture: [[0.0, "pinch"]]
+    expected: [[0.0, "pick"]]
+
+  - id: capitalized-gestures
+    gesture: [[0.0, "Grab"], [0.05, "Pinch"]]
+    expected: [[0.0, "pick"], [0.05, "pick"]]
+
+  - id: object-name-passes-through
+    gesture: [[0.4, "cup1"]]
+    expected: [[0.4, "cup1"]]
+
+  - id: gesture-with-object
+    gesture: [[0.0, "grab"], [0.4, "bowl1"]]
+    expected: [[0.0, "pick"], [0.4, "bowl1"]]
+
+  - id: meaningless-gestures-dropped
+    gesture: [[0.0, "point"], [0.1, "thumb"], [0.2, "no_moving"]]
+    expected: []
+
+  - id: swipe-left-means-push
+    gesture: [[0.0, "swipe_left"]]
+    expected: [[0.0, "push"]]
+
+  - id: thumbsup-means-pour
+    gesture: [[0.0, "thumbsup"]]
+    expected: [[0.0, "pour"]]
+
+  - id: no-gestures
+    gesture: []
+    expected: []

@@ -1,12 +1,37 @@
 import yaml, os
-import hri_manager, trajectory_data
+import hri_manager, trajectory_data, object_localization
 import yaml
 import os
+import io
+import base64
 import plotly.graph_objects as go
 import dash
 from dash import dcc, html, Input, Output, State
-import numpy as np
 from collections import defaultdict
+from PIL import Image
+
+from trajectory_data.skill_visualizer import minimal_trajectory_png, trajectories_fig, load_traj, load_grip
+
+CFG_DIR = f"{object_localization.package_path}/cfg"
+
+
+def _action_files(action, files):
+    """The action's skill recordings, grouped: plain/single-object ones and
+    the part1/part2 halves of a double-object skill."""
+    ok = lambda f: "trial" not in f and "branch" not in f
+    singles = sorted(f for f in files if ok(f) and (f.startswith(f"{action}_") or f == f"{action}.npz"))
+    part1 = sorted(f for f in files if ok(f) and f.startswith(f"{action}1_"))
+    part2 = sorted(f for f in files if ok(f) and f.startswith(f"{action}2_"))
+    return singles, part1, part2
+
+
+def _file_to_data_uri(path, max_px=200):
+    """Small base64 data URI of an image file (downscaled to keep page light)."""
+    img = Image.open(path)
+    img.thumbnail((max_px, max_px))
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 app = dash.Dash(__name__)
 
@@ -40,7 +65,7 @@ app.layout = html.Div([
     ]),
     html.Div([
         dcc.Graph(id='main-graph', style={'width': '60%', 'height': '90vh', 'display': 'inline-block'}),
-        dcc.Graph(id='matrix-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'}),
+        dcc.Graph(id='trajectory-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'}),
         html.Div(  # bottom bar that appears with the command
             id='command-bar',
             children="",
@@ -65,6 +90,8 @@ app.layout = html.Div([
 actions = []
 objects = []
 skill_db = defaultdict(dict)
+action_thumbs = {}   # action -> data URI of the minimalist 3D trajectory plot
+object_images = {}   # object -> data URI of the cfg "Template Cropped" image
 
 @app.callback(
     Output('dummy-output', 'children'),
@@ -72,16 +99,18 @@ skill_db = defaultdict(dict)
     prevent_initial_call=True
 )
 def load_user_data(selected_filename):
-    global actions, objects, skill_db
-    
+    global actions, objects, skill_db, action_thumbs, object_images
+
     # Clear previous data
     actions = []
     objects = []
     skill_db = defaultdict(dict)
+    action_thumbs = {}
+    object_images = {}
     
-    # Load user data
-    with open(f'{hri_manager.package_path}/links/{selected_filename}') as f:
-        user_data = yaml.safe_load(f)
+    # Load user data (`actions` is derived from the arity lists)
+    from hri_manager.user_links import load_user_links
+    user_data = load_user_links(selected_filename.removesuffix('_links.yaml'))
     actions = user_data['actions']
     objects = user_data['objects']
 
@@ -103,7 +132,34 @@ def load_user_data(selected_filename):
                 else:
                     action = skill_part
                     skill_db[(action, 'single')][obj] = True
-    
+
+    # Minimalist 3D trajectory preview for each action node. A double-object
+    # action (e.g. put) shows its part1 + part2 trajectories overlaid in two
+    # colors; otherwise the first recording of the action is shown
+    # (thumbnails are disk-cached, so only the first load renders anything).
+    for action in actions:
+        singles, part1, part2 = _action_files(action, skill_files)
+        candidates = part1[:1] + part2[:1] if (part1 or part2) else singles[:1]
+        if not candidates:
+            continue
+        try:
+            png = minimal_trajectory_png(candidates)
+            if png is not None:
+                action_thumbs[action] = _file_to_data_uri(png)
+        except Exception as e:
+            print(f"Trajectory thumbnail failed for {candidates}: {e}")
+
+    # "Template Cropped" image (cfg/<object>/template.png) for each object node
+    for obj in objects:
+        for dirname in (obj, f"{obj}_template"):
+            path = os.path.join(CFG_DIR, dirname, "template.png")
+            if os.path.isfile(path):
+                try:
+                    object_images[obj] = _file_to_data_uri(path)
+                except Exception as e:
+                    print(f"Template image failed for {obj}: {e}")
+                break
+
     return ""  # Returns empty string to dummy output
 @app.callback(
     Output('main-graph', 'figure'),
@@ -151,7 +207,8 @@ def create_main_graph(trigger, _):
         y=[n['y'] for n in action_nodes],
         mode='markers+text',
         text=[n['label'] for n in action_nodes],
-        marker=dict(size=20, color='#FF9AA2'),
+        marker=dict(size=26, color='#FF9AA2'),
+        textfont=dict(size=17, color='black'),
         textposition="middle center",
         hoverinfo='text',
         name='Actions (Left)',
@@ -164,7 +221,8 @@ def create_main_graph(trigger, _):
         y=[n['y'] for n in object_nodes],
         mode='markers+text',
         text=[n['label'] for n in object_nodes],
-        marker=dict(size=20, color='#B5EAD7'),
+        marker=dict(size=26, color='#B5EAD7'),
+        textfont=dict(size=17, color='black'),
         textposition="middle center",
         hoverinfo='text',
         name='Objects (Right)',
@@ -195,7 +253,9 @@ def create_main_graph(trigger, _):
                 ))
                 soa_leg = False
         
-        # Double object actions
+        # Double object actions: the edge carries a "1" / "2" badge at its
+        # midpoint so first- and second-object edges are told apart at a
+        # glance (matching the legend names)
         if (action, '1') in skill_db or (action, '2') in skill_db:
             # First objects (yellow dashed lines)
             if (action, '1') in skill_db:
@@ -205,16 +265,19 @@ def create_main_graph(trigger, _):
                     start = next(n for n in action_nodes if n['label'] == action)
                     end = next(n for n in object_nodes if n['label'] == obj)
                     fig.add_trace(go.Scatter(
-                        x=[start['x'], end['x']],
-                        y=[start['y'], end['y']],
-                        mode='lines',
+                        x=[start['x'], (start['x'] + end['x']) / 2, end['x']],
+                        y=[start['y'], (start['y'] + end['y']) / 2, end['y']],
+                        mode='lines+text',
+                        text=["", "1", ""],
+                        textfont=dict(size=15, color='#B8860B'),
+                        textposition="top center",
                         line=dict(color='#FFD700', width=2, dash='dot'),
                         hoverinfo='none',
-                        name='First object',
+                        name='1st object (yellow dotted)',
                         showlegend=True if fo_leg else False  # Only show once
                     ))
                     fo_leg = False
-            
+
             # Second objects (blue dashed lines)
             if (action, '2') in skill_db:
                 for obj in skill_db[(action, '2')]:
@@ -223,15 +286,37 @@ def create_main_graph(trigger, _):
                     start = next(n for n in action_nodes if n['label'] == action)
                     end = next(n for n in object_nodes if n['label'] == obj)
                     fig.add_trace(go.Scatter(
-                        x=[start['x'], end['x']],
-                        y=[start['y'], end['y']],
-                        mode='lines',
+                        x=[start['x'], (start['x'] + end['x']) / 2, end['x']],
+                        y=[start['y'], (start['y'] + end['y']) / 2, end['y']],
+                        mode='lines+text',
+                        text=["", "2", ""],
+                        textfont=dict(size=15, color='#4682B4'),
+                        textposition="top center",
                         line=dict(color='#4682B4', width=1, dash='dashdot'),
                         hoverinfo='none',
-                        name='Second object',
+                        name='2nd object (blue dash-dot)',
                         showlegend=True if so_leg else False  # Only show once
                     ))
                     so_leg = False
+
+    # Embed the minimalist 3D trajectory next to each action node and the
+    # cfg "Template Cropped" picture next to each object node
+    for n in action_nodes:
+        uri = action_thumbs.get(n['label'])
+        if uri:
+            fig.add_layout_image(
+                source=uri, xref='x', yref='y',
+                x=n['x'] - 0.05, y=n['y'], xanchor='right', yanchor='middle',
+                sizex=0.30, sizey=min(0.17, 0.9 / max(len(action_nodes), 1)),
+                layer='above')
+    for n in object_nodes:
+        uri = object_images.get(n['label'])
+        if uri:
+            fig.add_layout_image(
+                source=uri, xref='x', yref='y',
+                x=n['x'] + 0.05, y=n['y'], xanchor='left', yanchor='middle',
+                sizex=0.30, sizey=min(0.17, 0.9 / max(len(object_nodes), 1)),
+                layer='above')
 
     # Customize legend and layout
     fig.update_layout(
@@ -244,7 +329,7 @@ def create_main_graph(trigger, _):
             title_text="Legend:"
         ),
         showlegend=True,
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.1, 1.1]),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.45, 1.45]),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         plot_bgcolor='white',
         margin=dict(l=20, r=20, t=40, b=20),
@@ -261,97 +346,69 @@ def create_main_graph(trigger, _):
     
     return fig
 
-# Callback for matrix display
+# Callback for the trajectory display: clicking an action node shows the
+# whole End-Effector Trajectory of every recording of that action, overlaid
+# in one 3D scene (a double-object action like put shows its part1 and part2
+# trajectories together). The valid objects are already visible as edges in
+# the left graph.
 @app.callback(
-    Output('matrix-display', 'figure'),
+    Output('trajectory-display', 'figure'),
     Output('current-action', 'data'),
     Input('main-graph', 'clickData'))
-def update_matrix(clickData):
+def update_trajectory_display(clickData):
     fig = go.Figure()
     if not clickData:
         return fig, dash.no_update
-    
+
     try:
         point_index = clickData['points'][0]['pointIndex']
         clicked_trace = clickData['points'][0]['curveNumber']
-        
+
         # Only respond to clicks on action nodes (trace 0)
         if clicked_trace != 0:
             return fig, dash.no_update
-        
+
         action = action_nodes[point_index]['label']
-        
-        # Check if it's a double action
-        if (action, '1') in skill_db and (action, '2') in skill_db:
-            first_objs = list(skill_db[(action, '1')].keys())
-            second_objs = list(skill_db[(action, '2')].keys())
-            
-            # Create matrix of valid combinations
-            matrix = np.zeros((len(first_objs), len(second_objs)))
-            annotations = []
-            
-            for i, f_obj in enumerate(first_objs):
-                for j, s_obj in enumerate(second_objs):
-                    # Check if both parts exist and objects are different
-                    if f_obj in skill_db[(action, '1')] and s_obj in skill_db[(action, '2')] and f_obj != s_obj:
-                        matrix[i,j] = 1
-                        annotations.append(
-                            dict(text="✓",
-                                 x=j, y=i, 
-                                 xref='x', yref='y',
-                                 showarrow=False,
-                                 font=dict(color='black'))
-                        )
-            
-            fig = go.Figure(data=go.Heatmap(
-                z=matrix,
-                x=second_objs,
-                y=first_objs,
-                colorscale=[[0, 'white'], [1, '#90EE90']],
-                showscale=False,
-                hoverinfo='none'
-            ))
-            
-            fig.update_layout(
-                title=f"Valid pairs for {action}",
-                annotations=annotations,
-                xaxis_title="Second Object",
-                yaxis_title="First Object",
-                plot_bgcolor='white',
-                yaxis=dict(autorange='reversed')  # To match matrix convention
-            )
-            return fig, action
-        elif (action, 'single') in skill_db:
-            # Show single object connections
-            valid_objs = list(skill_db[(action, 'single')].keys())
-            fig.add_trace(go.Scatter(
-                x=[0.5] * len(valid_objs),
-                y=valid_objs,
-                mode='markers',
-                marker=dict(size=20, color='#90EE90'),
-                text=valid_objs,
-                hoverinfo='text'
-            ))
-            fig.update_layout(
-                title=f"Valid objects for {action}",
-                xaxis=dict(showgrid=False, showticklabels=False, range=[0, 1]),
-                yaxis=dict(title="Objects"),
-                plot_bgcolor='white'
-            )
-            return fig, action
-        
+
+        skill_files = [f for f in os.listdir(f'{trajectory_data.package_path}/trajectories')
+                       if f.endswith('.npz')]
+        singles, part1, part2 = _action_files(action, skill_files)
+        files = singles + part1 + part2
+        if not files:
+            fig.update_layout(title=f"No recordings for {action}", plot_bgcolor='white')
+            return fig, dash.no_update
+
+        named_trajs, named_grips = {}, {}
+        for f in files:
+            label = f.replace('.npz', '')
+            try:
+                named_trajs[label] = load_traj(f)
+            except Exception as e:
+                print(f"Failed to load trajectory {f}: {e}")
+                continue
+            try:
+                named_grips[label] = load_grip(f)  # marks gripper open/close points
+            except Exception as e:
+                print(f"No gripper data for {f}: {e}")
+
+        fig = trajectories_fig(named_trajs, named_grips)
+        fig.update_layout(title=f"End-Effector Trajectory: {action}")
+        return fig, {'action': action, 'files': list(named_trajs.keys())}
+
     except Exception as e:
-        print(f"Error updating matrix: {e}")
-    
+        print(f"Error updating trajectory display: {e}")
+
     return fig, dash.no_update
 
 @app.callback(
     Output('command-bar', 'children'),
     Output('command-bar', 'style'),
-    Input('matrix-display', 'clickData'),
+    Input('trajectory-display', 'clickData'),
     State('current-action', 'data')
 )
-def show_command_bar(clickData, action):
+def show_command_bar(clickData, data):
+    """Clicking one of the displayed trajectories shows the launch command
+    for that particular skill recording."""
     # Base style for the bar; toggling 'display' controls visibility
     base_style = {
         'position': 'fixed',
@@ -366,34 +423,27 @@ def show_command_bar(clickData, action):
         'whiteSpace': 'pre'
     }
 
-    if not clickData or not action:
+    if not clickData or not data or not data.get('files'):
         return dash.no_update, dash.no_update
 
-    pt = clickData['points'][0]
+    action = data['action']
+    files = data['files']
+    curve = clickData['points'][0].get('curveNumber', 0)
+    if curve >= len(files):
+        return dash.no_update, dash.no_update
+    skill = files[curve]  # trace order == files order in the trajectory figure
 
-    # Heatmap -> pair selection. Ensure it's a valid cell (z==1)
-    if 'z' in pt:
-        z_val = pt.get('z', 0)
-        if not z_val:
-            # Clicked an invalid combination; do nothing
-            return dash.no_update, dash.no_update
-        first_obj = str(pt.get('y'))
-        second_obj = str(pt.get('x'))
-        cmd = (
-            f"ros2 launch skills_manager play_skill_launch.py "
-            f"name_skill:={action}1_{first_obj} name_template:={first_obj}" + "; " 
-            f"ros2 launch skills_manager play_skill_launch.py "
-            f"name_skill:={action}2_{second_obj} name_template:={second_obj}" #name_storage:={second_obj}"
-        )
-    else:
-        # Single-object scatter -> one object selected
-        obj = pt.get('y') or pt.get('text')
-        if obj is None:
-            return dash.no_update, dash.no_update
-        cmd = (
-            f"ros2 launch skills_manager play_skill_launch.py "
-            f"name_skill:={action}_{obj} name_template:={obj}"
-        )
+    # Template = the object part of the skill name (put1_box -> box); a skill
+    # named exactly like the action has no object part -> template = skill.
+    template = skill
+    for prefix in (f"{action}_", f"{action}1_", f"{action}2_"):
+        if skill.startswith(prefix):
+            template = skill[len(prefix):]
+            break
+    cmd = (
+        f"ros2 launch skills_manager play_skill_launch.py "
+        f"name_skill:={skill} name_template:={template}"
+    )
 
     content = html.Div([
         html.Strong("Command: "),

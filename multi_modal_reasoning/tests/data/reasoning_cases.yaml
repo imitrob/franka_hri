@@ -2,6 +2,13 @@ scene: >
   In the scene are three objects. The cup1 is big red cup. The container1
   is wide blue container. bowl1 is green small bowl.
 
+# Grounded object instances present in the scene above (the links yaml only
+# holds object classes; commands ground to these instances).
+objects:
+- cup1
+- container1
+- bowl1
+
 cases:
   - id: pick-cup-voice 
     voice: [[0.0, "pick"], [0.1, "green"], [0.4, "cup"]]
@@ -54,26 +61,86 @@ cases:
     expected: "pick cup1"
 
   - id: pick-cup1-voice-gesture-addedwords1
-    voice: [[0.0, "Pinch"], [0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
-    gesture: []
+    voice: [[0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: [[0.0, "Pinch"]]
     expected: "pick cup1"
 
   - id: pick-cup1-voice-gesture-addedwords2
-    voice: [[0.0, "Grab"], [0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
-    gesture: []
+    voice: [[0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: [[0.0, "Grab"]]
     expected: "pick cup1"
 
   - id: pick-cup1-voice-gesture-addedwords3
-    voice: [[0.0, "Grab"], [0.05, "pinch"], [0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
-    gesture: []
+    voice: [[0.05, "pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: [[0.0, "Grab"], [0.05, "pinch"]]
     expected: "pick cup1"
 
   - id: pick-cup1-voice-gesture-addedwords4
-    voice: [[0.00, "Pick"], [0.01, "grab"], [0.05, "pinch"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    voice: [[0.00, "Pick"], [0.1, "the"], [0.4, "red"], [0.5, "object"]]
+    gesture: [[0.01, "grab"], [0.05, "pinch"]]
+    expected: "pick cup1"
+
+  # Paraphrase set: sentences similar to "pick the red object" said with
+  # different words; the model must still ground them to "pick cup1".
+  - id: pick-cup1-paraphrase-give
+    voice: [[0.0, "give"], [0.1, "me"], [0.2, "a"], [0.3, "red"], [0.4, "object"]]
     gesture: []
     expected: "pick cup1"
 
-#  - id: pick-this-uncertain
-#    voice: [[0.0, "Pick"], [0.1, "up"], [0.4, "this"]]
-#    gesture: []
-#    expected: "pick this"
+  - id: pick-cup1-paraphrase-take
+    voice: [[0.0, "take"], [0.1, "the"], [0.2, "red"], [0.3, "object"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-cup1-paraphrase-hand
+    voice: [[0.0, "hand"], [0.1, "me"], [0.2, "the"], [0.3, "red"], [0.4, "cup"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-cup1-paraphrase-grasp
+    voice: [[0.0, "grasp"], [0.1, "the"], [0.2, "red"], [0.3, "one"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: pick-cup1-paraphrase-get
+    voice: [[0.0, "get"], [0.1, "me"], [0.2, "the"], [0.3, "red"], [0.4, "cup"]]
+    gesture: []
+    expected: "pick cup1"
+
+  # Paraphrase set for push and pour, same idea as the pick set above.
+  - id: push-container1-paraphrase-shove
+    voice: [[0.0, "shove"], [0.1, "the"], [0.2, "blue"], [0.3, "container"]]
+    gesture: []
+    expected: "push container1"
+
+  - id: push-bowl1-paraphrase-slide
+    voice: [[0.0, "slide"], [0.1, "the"], [0.2, "green"], [0.3, "bowl"]]
+    gesture: []
+    expected: "push bowl1"
+
+  - id: pour-paraphrase-empty
+    voice: [[0.0, "empty"], [0.1, "the"], [0.2, "cup"], [0.3, "into"], [0.4, "the"], [0.5, "bowl"]]
+    gesture: []
+    expected: "pour cup1 to bowl1"
+
+  - id: pour-paraphrase-tip
+    voice: [[0.0, "tip"], [0.1, "the"], [0.2, "red"], [0.3, "cup"], [0.4, "into"], [0.5, "the"], [0.6, "green"], [0.7, "bowl"]]
+    gesture: []
+    expected: "pour cup1 to bowl1"
+
+  # Object-word paraphrases: the spoken noun is a synonym of a scene object.
+  - id: pick-cup1-object-paraphrase-mug
+    voice: [[0.0, "pick"], [0.1, "up"], [0.2, "the"], [0.3, "mug"]]
+    gesture: []
+    expected: "pick cup1"
+
+  - id: push-bowl1-object-paraphrase-dish
+    voice: [[0.0, "push"], [0.1, "the"], [0.2, "green"], [0.3, "dish"]]
+    gesture: []
+    expected: "push bowl1"
+
+  - id: pour-object-paraphrase-glass-basin
+    voice: [[0.0, "pour"], [0.1, "the"], [0.2, "glass"], [0.3, "into"], [0.4, "the"], [0.5, "basin"]]
+    gesture: []
+    expected: "pour cup1 to bowl1"
+
