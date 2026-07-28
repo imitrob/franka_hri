@@ -68,14 +68,7 @@ class InteractionNode():
         """Hand the command over to the robot (LfD) node via ROS2."""
         print(f"{cc.W}Playing skill command: {skillcommand}{cc.E}")
         if not skillcommand.is_valid():
-            self.speak("Skill Command is Not valid, returning!")
+            self.speak(f"Skill Command is not valid ({skillcommand.invalid_reason}), returning!")
             return
         self.speak(f"Executing: {skillcommand}")
-        self.skill_command_pub.publish(String(data=json.dumps({
-            "command": skillcommand.command,
-            "target_action": skillcommand.target_action,
-            "target_object": skillcommand.target_object,
-            "object_preposition": skillcommand.object_preposition,
-            "target_object2": skillcommand.target_object2,
-            "action_parameter": skillcommand.action_parameter,
-        })))
+        self.skill_command_pub.publish(String(data=json.dumps(skillcommand.to_dict())))

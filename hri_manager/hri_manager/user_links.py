@@ -6,9 +6,7 @@ actions = zero_object_actions + single_object_actions + double_object_actions
           + directional_actions
 """
 import yaml
-
 import hri_manager
-
 
 def load_user_links(name_user: str) -> dict:
     d = yaml.safe_load(open(f"{hri_manager.package_path}/links/{name_user}_links.yaml", mode='r'))

@@ -64,7 +64,10 @@ app.layout = html.Div([
         ),
     ]),
     html.Div([
-        dcc.Graph(id='main-graph', style={'width': '60%', 'height': '90vh', 'display': 'inline-block'}),
+        # Static graph: zoom/pan disabled (embedded pngs don't rescale well),
+        # clicks still work
+        dcc.Graph(id='main-graph', style={'width': '60%', 'height': '90vh', 'display': 'inline-block'},
+                  config={'displayModeBar': False, 'scrollZoom': False, 'doubleClick': False}),
         dcc.Graph(id='trajectory-display', style={'width': '40%', 'height': '90vh', 'display': 'inline-block'}),
         html.Div(  # bottom bar that appears with the command
             id='command-bar',
@@ -329,8 +332,9 @@ def create_main_graph(trigger, _):
             title_text="Legend:"
         ),
         showlegend=True,
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.45, 1.45]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.45, 1.45], fixedrange=True),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, fixedrange=True),
+        dragmode=False,
         plot_bgcolor='white',
         margin=dict(l=20, r=20, t=40, b=20),
         title=""
@@ -355,8 +359,16 @@ def create_main_graph(trigger, _):
     Output('trajectory-display', 'figure'),
     Output('current-action', 'data'),
     Input('main-graph', 'clickData'))
-def update_trajectory_display(clickData):
+def _blank_fig(title=""):
+    """Empty white panel: no axes, optionally just a title."""
     fig = go.Figure()
+    fig.update_layout(title=title, xaxis=dict(visible=False), yaxis=dict(visible=False),
+                      plot_bgcolor='white', paper_bgcolor='white')
+    return fig
+
+
+def update_trajectory_display(clickData):
+    fig = _blank_fig()
     if not clickData:
         return fig, dash.no_update
 
@@ -375,8 +387,7 @@ def update_trajectory_display(clickData):
         singles, part1, part2 = _action_files(action, skill_files)
         files = singles + part1 + part2
         if not files:
-            fig.update_layout(title=f"No recordings for {action}", plot_bgcolor='white')
-            return fig, dash.no_update
+            return _blank_fig(f"No recordings for {action}"), dash.no_update
 
         named_trajs, named_grips = {}, {}
         for f in files:
@@ -392,7 +403,10 @@ def update_trajectory_display(clickData):
                 print(f"No gripper data for {f}: {e}")
 
         fig = trajectories_fig(named_trajs, named_grips)
-        fig.update_layout(title=f"End-Effector Trajectory: {action}")
+        # More top margin so the title sits above the horizontal legend
+        # (legend y=1.02) instead of being pushed out of view
+        fig.update_layout(title=dict(text=f"End-Effector Trajectory: {action}", y=0.98, yanchor="top"),
+                          margin=dict(t=90))
         return fig, {'action': action, 'files': list(named_trajs.keys())}
 
     except Exception as e:

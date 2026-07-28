@@ -97,8 +97,6 @@ Use small **instruct** (non-reasoning) models — merger force schema-constraine
 - `google/gemma-3-4b-it` (~8 GB) — strong instruction-following.
 - `ibm-granite/granite-3.3-2b-instruct` (~4 GB) — lightweight.
 
-Smaller (`Qwen/Qwen2.5-1.5B-Instruct`, `HuggingFaceTB/SmolLM2-1.7B-Instruct`, ~3 GB) fastest but weaker on adversarial multi-verb commands.
-
 Parameters:
 1. Common-Set of Gestures set by default: see `teleop_gesture_toolbox:README.md` for creating new gestures
      - Get pose-gestures + gesture swipes (recommended: default set)

@@ -51,12 +51,10 @@ class HRI(SceneGetter, InteractionNode, SpinningRosNode):
         self.speak(f"Executing {name_skill} with object {name_template}!")
 
         self.skill_command_pub.publish(String(data=json.dumps({
+            "action": name_skill,
+            "objects": [name_template] if name_template else [],
+            "parameters": {} if skill_parameter is None else {"skill_parameter": skill_parameter},
             "command": f"{name_skill} {name_template}".strip(),
-            "target_action": name_skill,
-            "target_object": name_template if name_template != "" else None,
-            "object_preposition": None,
-            "target_object2": None,
-            "action_parameter": skill_parameter,
         })))
 
 

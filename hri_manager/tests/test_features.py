@@ -21,11 +21,7 @@ USER = "casper"
 OOM_HINT = "GPU out of memory — free VRAM (e.g. stop the vLLM server sharing this GPU)"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ros_context():
-    rclpy.init()
-    yield
-    rclpy.shutdown()
+# rclpy is initialised once per session in conftest.py (ros_context fixture)
 
 
 @pytest.fixture(scope="module")

@@ -35,9 +35,7 @@ class HriCommand():
         self.stamps = stamps if stamps is not None else {}
         self.results_dict = self.apply_thresholding()
 
-    # ------------------------------------------------------------------ #
-    # Construction                                                        #
-    # ------------------------------------------------------------------ #
+    # Construction
     @classmethod
     def from_dict(cls, arity_names, data_dict, thresholding=THRESHOLDING, stamps=None):
         """`data_dict` holds "<arity>_names" and "<arity>_probs" per arity."""
@@ -62,9 +60,7 @@ class HriCommand():
         }
         return cls.from_dict(arity_names, msg_dict, thresholding, stamps)
 
-    # ------------------------------------------------------------------ #
-    # Winning targets                                                     #
-    # ------------------------------------------------------------------ #
+    # Winning targets
     @property
     def target_action(self):
         return self.pv_dict["action"].max
@@ -85,15 +81,6 @@ class HriCommand():
         """Detection timestamp of the arity, -1.0 when unknown."""
         return self.stamps.get(arity, -1.0)
 
-    def get_action_stamp(self):
-        return self.get_stamp("action")
-
-    def get_object_stamp(self):
-        return self.get_stamp("object")
-
-    def get_storage_stamp(self):
-        return self.get_stamp("storage")
-
     def get_target_timestamped_list(self):
         """Winning targets as [[stamp, word], ...], ordered action, object, storage.
 
@@ -109,15 +96,7 @@ class HriCommand():
             out.append([self.get_stamp("storage"), self.target_storage])
         return out
 
-    def get_target_timestamped_probabilistic(self):
-        """Like get_target_timestamped_list, but each entry carries the full
-        {name: prob} candidates instead of only the winner."""
-        arities = ["action", "object"] + (["storage"] if "storage" in self.pv_dict else [])
-        return [[self.get_stamp(arity), self.pv_dict[arity].dict] for arity in arities]
-
-    # ------------------------------------------------------------------ #
-    # Modality merging                                                    #
-    # ------------------------------------------------------------------ #
+    # Modality merging
     def __matmul__(self, other):
         """Merge two modalities: merged = voice_command @ gesture_command."""
         assert self.arity_names == other.arity_names
@@ -138,11 +117,7 @@ class HriCommand():
         """arity -> probabilities array, e.g. {"action": [...], "object": [...]}."""
         return {arity: self.pv_dict[arity].p for arity in self.arity_names}
 
-    data_dict = probs_dict  # legacy alias
-
-    # ------------------------------------------------------------------ #
-    # Serialization                                                       #
-    # ------------------------------------------------------------------ #
+    # Serialization
     def to_dict(self):
         d = {"arity_names": self.arity_names}
         for arity in self.arity_names:
